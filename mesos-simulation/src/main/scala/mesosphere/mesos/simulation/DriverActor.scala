@@ -101,6 +101,13 @@ class DriverActor(schedulerProps: Props) extends Actor {
         scheduler ! TaskStatus.newBuilder()
           .setSource(TaskStatus.Source.SOURCE_EXECUTOR)
           .setTaskId(taskInfo.getTaskId)
+          .setState(TaskState.TASK_STAGING)
+          .build()
+      }
+      tasks.foreach { taskInfo: TaskInfo =>
+        scheduler ! TaskStatus.newBuilder()
+          .setSource(TaskStatus.Source.SOURCE_EXECUTOR)
+          .setTaskId(taskInfo.getTaskId)
           .setState(TaskState.TASK_RUNNING)
           .build()
       }

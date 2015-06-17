@@ -1,28 +1,30 @@
 package mesosphere.marathon.api.v2
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import mesosphere.marathon.api.v2.json.Formats._
 import mesosphere.marathon.api.v2.json.V2AppDefinition
+import mesosphere.marathon.core.launchqueue.LaunchQueue
+import mesosphere.marathon.core.launchqueue.LaunchQueue.QueuedTaskCount
 import mesosphere.marathon.state.AppDefinition
 import mesosphere.marathon.state.PathId._
-import mesosphere.marathon.tasks.TaskQueue.QueuedTask
 import mesosphere.marathon.{ MarathonConf, MarathonSpec }
-import mesosphere.marathon.tasks.TaskQueue
 import mesosphere.util.Mockito
 import org.scalatest.Matchers
 import play.api.libs.json._
-import scala.concurrent.duration._
+
 import scala.collection.immutable.Seq
+import scala.concurrent.duration._
 
 class QueueResourceTest extends MarathonSpec with Matchers with Mockito {
 
   test("return well formatted JSON") {
     //given
-    val queue = mock[TaskQueue]
+    val queue = mock[LaunchQueue]
     val app = AppDefinition(id = "app".toRootPath)
     val resource = new QueueResource(queue, mock[MarathonConf])
-    queue.listWithDelay returns Seq(QueuedTask(app, new AtomicInteger(23)) -> 100.seconds.fromNow)
+    queue.listWithDelay returns Seq(
+      QueuedTaskCount(
+        app, tasksLeftToLaunch = 23, taskLaunchesInFlight = 0, tasksLaunchedOrRunning = 0
+      ) -> 100.seconds.fromNow)
 
     //when
     val response = resource.index()
@@ -41,10 +43,13 @@ class QueueResourceTest extends MarathonSpec with Matchers with Mockito {
 
   test("the generated info from the queue contains 0 if there is no delay") {
     //given
-    val queue = mock[TaskQueue]
+    val queue = mock[LaunchQueue]
     val app = AppDefinition(id = "app".toRootPath)
     val resource = new QueueResource(queue, mock[MarathonConf])
-    queue.listWithDelay returns Seq(QueuedTask(app, new AtomicInteger(23)) -> -100.seconds.fromNow)
+    queue.listWithDelay returns Seq(
+      QueuedTaskCount(
+        app, tasksLeftToLaunch = 23, taskLaunchesInFlight = 0, tasksLaunchedOrRunning = 0
+      ) -> -100.seconds.fromNow)
 
     //when
     val response = resource.index()
@@ -63,7 +68,7 @@ class QueueResourceTest extends MarathonSpec with Matchers with Mockito {
 
   test("unknown application backoff can not be removed from the taskqueue") {
     //given
-    val queue = mock[TaskQueue]
+    val queue = mock[LaunchQueue]
     val resource = new QueueResource(queue, mock[MarathonConf])
     queue.listWithDelay returns Seq.empty
 
@@ -76,16 +81,19 @@ class QueueResourceTest extends MarathonSpec with Matchers with Mockito {
 
   test("application backoff can be removed from the taskqueue") {
     //given
-    val queue = mock[TaskQueue]
+    val queue = mock[LaunchQueue]
     val app = AppDefinition(id = "app".toRootPath)
     val resource = new QueueResource(queue, mock[MarathonConf])
-    queue.listWithDelay returns Seq(QueuedTask(app, new AtomicInteger(23)) -> 100.seconds.fromNow)
+    queue.listWithDelay returns Seq(
+      QueuedTaskCount(
+        app, tasksLeftToLaunch = 23, taskLaunchesInFlight = 0, tasksLaunchedOrRunning = 0
+      ) -> 100.seconds.fromNow)
 
     //when
     val response = resource.resetDelay("app")
 
     //then
     response.getStatus should be(204)
-    verify(queue, times(1)).resetDelay(app)
+    verify(queue, times(1)).resetDelay(app.id)
   }
 }

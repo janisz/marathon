@@ -66,6 +66,7 @@ class TaskTracker @Inject() (
 
   def created(appId: PathId, task: MarathonTask): Unit = {
     // Keep this here so running() can pick it up
+    // FIXME: Should be persisted here for task reconciliation
     getInternal(appId) += (task.getId -> task)
   }
 

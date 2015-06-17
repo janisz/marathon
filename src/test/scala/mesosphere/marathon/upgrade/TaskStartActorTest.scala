@@ -4,12 +4,13 @@ import akka.actor.{ ActorSystem, Props }
 import akka.testkit.{ TestActorRef, TestKit }
 import com.codahale.metrics.MetricRegistry
 import mesosphere.marathon.Protos.MarathonTask
+import mesosphere.marathon.core.launchqueue.LaunchQueue
 import mesosphere.marathon.event.{ HealthStatusChanged, MesosStatusUpdateEvent }
 import mesosphere.marathon.health.HealthCheck
 import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.PathId._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
-import mesosphere.marathon.tasks.{ TaskIdUtil, TaskQueue, TaskTracker }
+import mesosphere.marathon.tasks.{ TaskIdUtil, TaskTracker }
 import mesosphere.marathon.{ MarathonConf, SchedulerActions, TaskUpgradeCanceledException }
 import mesosphere.util.state.memory.InMemoryStore
 import org.apache.mesos.SchedulerDriver
@@ -30,14 +31,14 @@ class TaskStartActorTest
 
   var driver: SchedulerDriver = _
   var scheduler: SchedulerActions = _
-  var taskQueue: TaskQueue = _
+  var taskQueue: LaunchQueue = _
   var taskTracker: TaskTracker = _
   var metrics: Metrics = _
 
   before {
     driver = mock[SchedulerDriver]
     scheduler = mock[SchedulerActions]
-    taskQueue = spy(new TaskQueue)
+    taskQueue = mock[LaunchQueue]
     metrics = new Metrics(new MetricRegistry)
     taskTracker = spy(new TaskTracker(new InMemoryStore, mock[MarathonConf], metrics))
   }
@@ -316,7 +317,8 @@ class TaskStartActorTest
     // launch 4 of the tasks
     when(taskTracker.count(app.id)).thenReturn(4)
     List(0, 1, 2, 3) foreach { i =>
-      taskQueue.poll()
+      // FIXME: uncomment this once the refactoring is done
+      //      taskQueue.poll()
       system.eventStream.publish(MesosStatusUpdateEvent("", s"task-$i", "TASK_RUNNING", "", app.id, "", Nil, app.version.toString))
     }
     assert(taskQueue.count(app.id) == 1)

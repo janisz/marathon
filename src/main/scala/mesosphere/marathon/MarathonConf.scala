@@ -1,12 +1,11 @@
 package mesosphere.marathon
 
-import mesosphere.marathon.tasks.IterativeOfferMatcherConfig
 import org.rogach.scallop.ScallopConf
 import scala.sys.SystemProperties
 
 import mesosphere.marathon.io.storage.StorageProvider
 
-trait MarathonConf extends ScallopConf with ZookeeperConf with IterativeOfferMatcherConfig with LeaderProxyConf {
+trait MarathonConf extends ScallopConf with ZookeeperConf with LeaderProxyConf {
 
   //scalastyle:off magic.number
 
