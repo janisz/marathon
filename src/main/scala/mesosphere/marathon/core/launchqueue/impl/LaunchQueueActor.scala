@@ -114,6 +114,9 @@ private[impl] class LaunchQueueActor(appActorProps: (AppDefinition, Int) => Prop
 
     case msg @ Add(app, count) if suspendedLauncherPathIds(app.id) =>
       deferMessageToSuspendedActor(msg, app.id)
+
+    case msg @ RateLimiterActor.DelayUpdate(app, _) if suspendedLauncherPathIds(app.id) =>
+      deferMessageToSuspendedActor(msg, app.id)
   }
 
   private[this] def deferMessageToSuspendedActor(msg: Any, appId: PathId): Unit = {
@@ -158,6 +161,9 @@ private[impl] class LaunchQueueActor(appActorProps: (AppDefinition, Int) => Prop
             (actorRef ? AppTaskLauncherActor.AddTasks(app, count)).mapTo[QueuedTaskCount]
           eventualCount.map(_ => ()).pipeTo(sender())
       }
+
+    case msg @ RateLimiterActor.DelayUpdate(app, _) =>
+      launchers.get(app.id).foreach(_.forward(msg))
   }
 
   private[this] def createAppTaskLauncher(app: AppDefinition, initialCount: Int): ActorRef = {

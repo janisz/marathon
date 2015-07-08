@@ -10,6 +10,7 @@ import mesosphere.marathon.core.leadership.LeadershipModule
 import mesosphere.marathon.core.matcher.OfferMatcherModule
 import mesosphere.marathon.core.launchqueue.LaunchQueueModule
 import mesosphere.marathon.core.task.bus.TaskBusModule
+import mesosphere.marathon.state.AppRepository
 import mesosphere.marathon.tasks.{ TaskFactory, TaskTracker }
 
 import scala.util.Random
@@ -23,6 +24,7 @@ import scala.util.Random
 class DefaultCoreModule @Inject() (
     // external dependencies still wired by guice
     marathonSchedulerDriverHolder: MarathonSchedulerDriverHolder,
+    appRepository: AppRepository,
     taskTracker: TaskTracker,
     taskFactory: TaskFactory,
     leaderInfo: LeaderInfo) extends CoreModule {
@@ -67,6 +69,7 @@ class DefaultCoreModule @Inject() (
     taskBusModule.taskStatusObservables,
 
     // external guice dependencies
+    appRepository,
     taskTracker,
     taskFactory
   )

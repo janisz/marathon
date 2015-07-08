@@ -6,7 +6,7 @@ import mesosphere.marathon.core.launchqueue.{ LaunchQueue, LaunchQueueModule }
 import mesosphere.marathon.core.leadership.LeadershipModule
 import mesosphere.marathon.core.matcher.OfferMatcherManager
 import mesosphere.marathon.core.task.bus.TaskStatusObservables
-import mesosphere.marathon.state.AppDefinition
+import mesosphere.marathon.state.{ AppRepository, AppDefinition }
 import mesosphere.marathon.tasks.{ TaskFactory, TaskTracker }
 
 private[core] class DefaultLaunchQueueModule(
@@ -14,10 +14,19 @@ private[core] class DefaultLaunchQueueModule(
     clock: Clock,
     subOfferMatcherManager: OfferMatcherManager,
     taskStatusObservables: TaskStatusObservables,
+    appRepository: AppRepository,
     taskTracker: TaskTracker,
     taskFactory: TaskFactory) extends LaunchQueueModule {
 
   override lazy val taskQueue: LaunchQueue = new ActorLaunchQueue(taskQueueActorRef)
+
+  private[this] lazy val rateLimiter: RateLimiter = new RateLimiter(clock)
+
+  private[this] lazy val rateLimiterActor: ActorRef = {
+    val props = RateLimiterActor.props(
+      rateLimiter, taskTracker, appRepository, taskQueueActorRef, taskStatusObservables)
+    leadershipModule.startWhenLeader(props, "rateLimiter")
+  }
 
   private[this] def appActorProps(app: AppDefinition, count: Int): Props =
     AppTaskLauncherActor.props(
@@ -25,11 +34,12 @@ private[core] class DefaultLaunchQueueModule(
       clock,
       taskFactory,
       taskStatusObservables,
-      taskTracker)(app, count)
+      taskTracker,
+      rateLimiterActor)(app, count)
 
   private[impl] lazy val taskQueueActorRef: ActorRef = {
     val props = LaunchQueueActor.props(appActorProps)
-    leadershipModule.startWhenLeader(props, "taskQueue")
+    leadershipModule.startWhenLeader(props, "launchQueue")
   }
 
 }

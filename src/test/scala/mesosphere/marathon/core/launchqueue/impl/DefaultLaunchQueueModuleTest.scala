@@ -7,7 +7,7 @@ import mesosphere.marathon.core.launchqueue.LaunchQueueModule
 import mesosphere.marathon.core.leadership.AlwaysElectedLeadershipModule
 import mesosphere.marathon.core.matcher.DummyOfferMatcherManager
 import mesosphere.marathon.core.task.bus.TaskBusModule
-import mesosphere.marathon.state.PathId
+import mesosphere.marathon.state.{AppRepository, PathId}
 import mesosphere.marathon.tasks.TaskFactory.CreatedTask
 import mesosphere.marathon.tasks.{ TaskIdUtil, TaskFactory, TaskTracker }
 import mesosphere.marathon.{ MarathonSpec, MarathonTestHelper }
@@ -166,6 +166,7 @@ class DefaultLaunchQueueModuleTest extends MarathonSpec with BeforeAndAfter with
   private[this] var clock: Clock = _
   private[this] var taskBusModule: TaskBusModule = _
   private[this] var offerMatcherManager: DummyOfferMatcherManager = _
+  private[this] var appRepository: AppRepository = _
   private[this] var taskTracker: TaskTracker = _
   private[this] var taskFactory: TaskFactory = _
   private[this] var module: LaunchQueueModule = _
@@ -180,18 +181,21 @@ class DefaultLaunchQueueModuleTest extends MarathonSpec with BeforeAndAfter with
     offerMatcherManager = new DummyOfferMatcherManager()
     taskTracker = mock[TaskTracker]("taskTracker")
     taskFactory = mock[TaskFactory]("taskFactory")
+    appRepository = mock[AppRepository]("appRepository")
 
     module = LaunchQueueModule(
       AlwaysElectedLeadershipModule(shutdownHooks),
       clock,
       subOfferMatcherManager = offerMatcherManager,
       taskStatusObservables = taskBusModule.taskStatusObservables,
+      appRepository,
       taskTracker,
       taskFactory
     )
   }
 
   after {
+    verifyNoMoreInteractions(appRepository)
     verifyNoMoreInteractions(taskTracker)
     verifyNoMoreInteractions(taskFactory)
 
