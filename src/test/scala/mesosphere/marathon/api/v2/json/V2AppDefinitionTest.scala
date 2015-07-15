@@ -14,7 +14,7 @@ import mesosphere.marathon.state._
 import mesosphere.marathon.state.PathId._
 import org.apache.mesos.{ Protos => mesos }
 import org.scalatest.Matchers
-import play.api.libs.json.Json
+import play.api.libs.json.{ JsValue, Json }
 
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -488,6 +488,7 @@ class V2AppDefinitionTest extends MarathonSpec with Matchers {
       .newBuilder
       .setHost("localhost")
       .setId("my-task")
+      .setMesosTaskUrl("http://mesos.url:5050/sandbox")
       .addPorts(9999)
       .setStagedAt(0)
       .setStartedAt(0)
@@ -524,6 +525,7 @@ class V2AppDefinitionTest extends MarathonSpec with Matchers {
       .newBuilder
       .setHost("localhost")
       .setId("my-task")
+      .setMesosTaskUrl("http://mesos.url:5050/sandbox")
       .addPorts(9999)
       .setStagedAt(0)
       .setStartedAt(0)

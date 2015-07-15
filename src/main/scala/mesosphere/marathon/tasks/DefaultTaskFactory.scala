@@ -32,7 +32,10 @@ class DefaultTaskFactory @Inject() (
           MarathonTasks.makeTask(
             taskInfo.getTaskId.getValue, offer.getHostname, ports,
             offer.getAttributesList.asScala, app.version
-          )
+          ).toBuilder.setMesosTaskUrl(
+              "#/slaves/%s/frameworks/%s/executors/%s/browse".format(
+                offer.getSlaveId.getValue, offer.getFrameworkId.getValue, taskInfo.getTaskId.getValue))
+            .build()
         )
     }
   }
