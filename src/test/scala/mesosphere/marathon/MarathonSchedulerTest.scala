@@ -13,7 +13,7 @@ import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.PathId._
 import mesosphere.marathon.state.{ AppDefinition, AppRepository, Timestamp }
 import mesosphere.marathon.tasks._
-import mesosphere.util.state.FrameworkIdUtil
+import mesosphere.util.state.{ MesosMasterUtil, FrameworkIdUtil }
 import org.apache.mesos.Protos._
 import org.apache.mesos.SchedulerDriver
 import org.mockito.ArgumentCaptor
@@ -33,6 +33,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
   var queue: TaskQueue = _
   var scheduler: MarathonScheduler = _
   var frameworkIdUtil: FrameworkIdUtil = _
+  var mesosMasterUtil: MesosMasterUtil = _
   var probe: TestProbe = _
   var taskIdUtil: TaskIdUtil = _
   var config: MarathonConf = _
@@ -44,6 +45,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
     tracker = mock[TaskTracker]
     queue = spy(new TaskQueue)
     frameworkIdUtil = mock[FrameworkIdUtil]
+    mesosMasterUtil = new MesosMasterUtil
     config = defaultConfig(maxTasksPerOffer = 10)
     taskIdUtil = TaskIdUtil
     probe = TestProbe()
@@ -52,7 +54,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
       eventBus,
       new IterativeOfferMatcher(
         config,
-        queue, tracker, new DefaultTaskFactory(taskIdUtil, tracker, config, new ObjectMapper()),
+        queue, tracker, new DefaultTaskFactory(taskIdUtil, tracker, config, mesosMasterUtil, new ObjectMapper()),
         new IterativeOfferMatcherMetrics(new Metrics(new MetricRegistry))
       ),
       probe.ref,
@@ -61,6 +63,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
       tracker,
       queue,
       frameworkIdUtil,
+      mesosMasterUtil,
       taskIdUtil,
       mock[ActorSystem],
       config,
@@ -178,6 +181,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
       assert(msg.frameworkId == frameworkId.getValue)
       assert(msg.master == masterInfo.getHostname)
       assert(msg.eventType == "scheduler_registered_event")
+      assert(mesosMasterUtil.load() == "http://some_host:5050")
     }
     finally {
       eventBus.unsubscribe(probe.ref)
@@ -202,6 +206,7 @@ class MarathonSchedulerTest extends TestKit(ActorSystem("System")) with Marathon
 
       assert(msg.master == masterInfo.getHostname)
       assert(msg.eventType == "scheduler_reregistered_event")
+      assert(mesosMasterUtil.load() == "http://some_host:5050")
     }
     finally {
       eventBus.unsubscribe(probe.ref)

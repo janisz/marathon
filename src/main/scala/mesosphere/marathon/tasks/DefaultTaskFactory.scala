@@ -9,6 +9,7 @@ import mesosphere.marathon.Protos.MarathonTask
 import mesosphere.marathon.state.AppDefinition
 import mesosphere.marathon.tasks.TaskFactory.CreatedTask
 import mesosphere.mesos.TaskBuilder
+import mesosphere.util.state.MesosMasterUtil
 import org.apache.mesos.Protos.{ TaskInfo, Offer }
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
@@ -17,6 +18,7 @@ class DefaultTaskFactory @Inject() (
   taskIdUtil: TaskIdUtil,
   taskTracker: TaskTracker,
   config: MarathonConf,
+  mesosMasterUtil: MesosMasterUtil,
   @Named("restMapper") mapper: ObjectMapper)
     extends TaskFactory {
 
@@ -33,9 +35,12 @@ class DefaultTaskFactory @Inject() (
             taskInfo.getTaskId.getValue, offer.getHostname, ports,
             offer.getAttributesList.asScala, app.version
           ).toBuilder.setMesosTaskUrl(
-              "#/slaves/%s/frameworks/%s/executors/%s/browse".format(
-                offer.getSlaveId.getValue, offer.getFrameworkId.getValue, taskInfo.getTaskId.getValue))
-            .build()
+              "%s/#/slaves/%s/frameworks/%s/executors/%s/".format(
+                mesosMasterUtil.load(),
+                offer.getSlaveId.getValue,
+                offer.getFrameworkId.getValue,
+                taskInfo.getTaskId.getValue)
+            ).build()
         )
     }
   }

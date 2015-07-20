@@ -7,7 +7,7 @@ import mesosphere.marathon.state.PathId._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
 import mesosphere.marathon.tasks.IterativeOfferMatcher.{ OfferUsage, OfferUsages }
 import mesosphere.marathon.{ MarathonConf, MarathonTestHelper }
-import mesosphere.util.state.PersistentStore
+import mesosphere.util.state.{ MesosMasterUtil, PersistentStore }
 import mesosphere.util.state.memory.InMemoryStore
 import org.apache.mesos.Protos.{ Offer, OfferID, TaskInfo }
 import org.apache.mesos.SchedulerDriver
@@ -27,6 +27,7 @@ class IterativeOfferMatcherTest extends FunSuite with GivenWhenThen with ShouldM
   var iterativeOfferMatcherMetrics: IterativeOfferMatcherMetrics = _
   var matcher: IterativeOfferMatcher = _
   var metrics: Metrics = _
+  var mesosMasterUtil: MesosMasterUtil = _
 
   def createEnv(maxTasksPerOffer: Int, maxTasksPerOfferCycle: Int = 1000): Unit = {
     config = MarathonTestHelper.defaultConfig(
@@ -36,7 +37,8 @@ class IterativeOfferMatcherTest extends FunSuite with GivenWhenThen with ShouldM
     metrics = new Metrics(new MetricRegistry)
     iterativeOfferMatcherMetrics = new IterativeOfferMatcherMetrics(metrics)
     taskTracker = new TaskTracker(state, config, metrics)
-    taskFactory = new DefaultTaskFactory(TaskIdUtil, taskTracker, config, new ObjectMapper())
+    mesosMasterUtil = new MesosMasterUtil
+    taskFactory = new DefaultTaskFactory(TaskIdUtil, taskTracker, config, mesosMasterUtil, new ObjectMapper())
     matcher = new IterativeOfferMatcher(config, taskQueue, taskTracker, taskFactory, iterativeOfferMatcherMetrics)
   }
 

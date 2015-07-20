@@ -12,7 +12,7 @@ import mesosphere.marathon.state.{ AppDefinition, AppRepository, PathId, Timesta
 import mesosphere.marathon.tasks.TaskQueue.QueuedTask
 import mesosphere.marathon.tasks._
 import mesosphere.mesos.protos
-import mesosphere.util.state.FrameworkIdUtil
+import mesosphere.util.state.{ MesosMasterUtil, FrameworkIdUtil }
 import org.apache.log4j.Logger
 import org.apache.mesos.Protos._
 import org.apache.mesos.{ Scheduler, SchedulerDriver }
@@ -35,6 +35,7 @@ class MarathonScheduler @Inject() (
     taskTracker: TaskTracker,
     taskQueue: TaskQueue,
     frameworkIdUtil: FrameworkIdUtil,
+    mesosMasterUtil: MesosMasterUtil,
     taskIdUtil: TaskIdUtil,
     system: ActorSystem,
     config: MarathonConf,
@@ -53,13 +54,13 @@ class MarathonScheduler @Inject() (
     master: MasterInfo): Unit = {
     log.info(s"Registered as ${frameworkId.getValue} to master '${master.getId}'")
     frameworkIdUtil.store(frameworkId)
-
+    mesosMasterUtil.store(master.getHostname, master.getPort)
     eventBus.publish(SchedulerRegisteredEvent(frameworkId.getValue, master.getHostname))
   }
 
   override def reregistered(driver: SchedulerDriver, master: MasterInfo): Unit = {
     log.info("Re-registered to %s".format(master))
-
+    mesosMasterUtil.store(master.getHostname, master.getPort)
     eventBus.publish(SchedulerReregisteredEvent(master.getHostname))
   }
 

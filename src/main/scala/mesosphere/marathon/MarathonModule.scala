@@ -35,7 +35,7 @@ import mesosphere.util.SerializeExecution
 import mesosphere.util.state.memory.InMemoryStore
 import mesosphere.util.state.mesos.MesosStateStore
 import mesosphere.util.state.zk.ZKStore
-import mesosphere.util.state.{ FrameworkId, FrameworkIdUtil, PersistentStore }
+import mesosphere.util.state.{ MesosMasterUtil, FrameworkId, FrameworkIdUtil, PersistentStore }
 import org.apache.log4j.Logger
 import org.apache.mesos.state.ZooKeeperState
 import org.apache.zookeeper.ZooDefs
@@ -79,6 +79,7 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
     bind(classOf[MarathonSchedulerService]).in(Scopes.SINGLETON)
     bind(classOf[LeaderInfo]).to(classOf[MarathonLeaderInfo]).in(Scopes.SINGLETON)
     bind(classOf[TaskTracker]).in(Scopes.SINGLETON)
+    bind(classOf[MesosMasterUtil]).in(Scopes.SINGLETON)
     bind(classOf[TaskQueue]).in(Scopes.SINGLETON)
     bind(classOf[TaskFactory]).to(classOf[DefaultTaskFactory]).in(Scopes.SINGLETON)
     bind(classOf[IterativeOfferMatcherMetrics]).in(Scopes.SINGLETON)
