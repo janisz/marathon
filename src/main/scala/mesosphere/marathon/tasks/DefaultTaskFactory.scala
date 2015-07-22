@@ -5,12 +5,11 @@ import javax.inject.Named
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.inject.Inject
 import mesosphere.marathon.MarathonConf
-import mesosphere.marathon.Protos.MarathonTask
 import mesosphere.marathon.state.AppDefinition
 import mesosphere.marathon.tasks.TaskFactory.CreatedTask
 import mesosphere.mesos.TaskBuilder
 import mesosphere.util.state.MesosMasterUtil
-import org.apache.mesos.Protos.{ TaskInfo, Offer }
+import org.apache.mesos.Protos.Offer
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 
@@ -36,7 +35,7 @@ class DefaultTaskFactory @Inject() (
             offer.getAttributesList.asScala, app.version
           ).toBuilder.setMesosTaskUrl(
               "%s/#/slaves/%s/frameworks/%s/executors/%s/".format(
-                mesosMasterUtil.load(),
+                mesosMasterUtil.getMasterUrl,
                 offer.getSlaveId.getValue,
                 offer.getFrameworkId.getValue,
                 taskInfo.getTaskId.getValue)

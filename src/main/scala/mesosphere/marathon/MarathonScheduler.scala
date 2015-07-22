@@ -54,13 +54,11 @@ class MarathonScheduler @Inject() (
     master: MasterInfo): Unit = {
     log.info(s"Registered as ${frameworkId.getValue} to master '${master.getId}'")
     frameworkIdUtil.store(frameworkId)
-    mesosMasterUtil.store(master.getHostname, master.getPort)
     eventBus.publish(SchedulerRegisteredEvent(frameworkId.getValue, master.getHostname))
   }
 
   override def reregistered(driver: SchedulerDriver, master: MasterInfo): Unit = {
     log.info("Re-registered to %s".format(master))
-    mesosMasterUtil.store(master.getHostname, master.getPort)
     eventBus.publish(SchedulerReregisteredEvent(master.getHostname))
   }
 

@@ -1,19 +1,28 @@
 package mesosphere.util.state
 
+import com.twitter.util.Await
+import com.twitter.zk.ZkClient
+import org.apache.mesos.Protos.MasterInfo
+
 /**
   * Utility class for keeping track of a Mesos MasterInfo
   */
-class MesosMasterUtil {
+trait MesosMasterUtil {
 
-  var mesosMasterUrl: String = _
+  def getMasterUrl: String
+}
 
-  //TODO: Do it better and keep value in zk
-  def store(host: String, port: Int): String = {
-    mesosMasterUrl = s"http://$host:$port"
-    mesosMasterUrl
-  }
+class ConstMesosMasterUtil(val masterUrl: String) extends MesosMasterUtil {
+  override def getMasterUrl: String = masterUrl
+}
 
-  def load(): String = {
-    mesosMasterUrl
+class ZkMesosMasterUtil(zkClient: ZkClient, path : String) extends MesosMasterUtil {
+
+  override def getMasterUrl: String = {
+    val q = Await.result(zkClient(path).getChildren.apply()).children.head.getData.apply()
+    val masterInfo = MasterInfo.parseFrom(Await.result(q).bytes)
+    s"http://${masterInfo.getHostname}:${masterInfo.getPort}"
   }
 }
+
+

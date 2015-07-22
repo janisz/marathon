@@ -7,7 +7,7 @@ import mesosphere.marathon.state.PathId._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
 import mesosphere.marathon.tasks.IterativeOfferMatcher.{ OfferUsage, OfferUsages }
 import mesosphere.marathon.{ MarathonConf, MarathonTestHelper }
-import mesosphere.util.state.{ MesosMasterUtil, PersistentStore }
+import mesosphere.util.state.{ ConstMesosMasterUtil, MesosMasterUtil, PersistentStore }
 import mesosphere.util.state.memory.InMemoryStore
 import org.apache.mesos.Protos.{ Offer, OfferID, TaskInfo }
 import org.apache.mesos.SchedulerDriver
@@ -37,7 +37,7 @@ class IterativeOfferMatcherTest extends FunSuite with GivenWhenThen with ShouldM
     metrics = new Metrics(new MetricRegistry)
     iterativeOfferMatcherMetrics = new IterativeOfferMatcherMetrics(metrics)
     taskTracker = new TaskTracker(state, config, metrics)
-    mesosMasterUtil = new MesosMasterUtil
+    mesosMasterUtil = new ConstMesosMasterUtil("http://some_host:5050")
     taskFactory = new DefaultTaskFactory(TaskIdUtil, taskTracker, config, mesosMasterUtil, new ObjectMapper())
     matcher = new IterativeOfferMatcher(config, taskQueue, taskTracker, taskFactory, iterativeOfferMatcherMetrics)
   }
