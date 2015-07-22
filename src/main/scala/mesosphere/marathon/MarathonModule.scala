@@ -68,6 +68,7 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
     bind(classOf[HttpConf]).toInstance(http)
     bind(classOf[ZooKeeperClient]).toInstance(zk)
     bind(classOf[LeaderProxyConf]).toInstance(conf)
+    bind(classOf[MesosMasterUtil]).toInstance(MesosMasterUtil(conf))
 
     // needs to be eager to break circular dependencies
     bind(classOf[SchedulerCallbacks]).to(classOf[SchedulerCallbacksServiceAdapter]).asEagerSingleton()
@@ -79,7 +80,6 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
     bind(classOf[MarathonSchedulerService]).in(Scopes.SINGLETON)
     bind(classOf[LeaderInfo]).to(classOf[MarathonLeaderInfo]).in(Scopes.SINGLETON)
     bind(classOf[TaskTracker]).in(Scopes.SINGLETON)
-    //    bind(classOf[MesosMasterUtil]).in(Scopes.SINGLETON)
     bind(classOf[TaskQueue]).in(Scopes.SINGLETON)
     bind(classOf[TaskFactory]).to(classOf[DefaultTaskFactory]).in(Scopes.SINGLETON)
     bind(classOf[IterativeOfferMatcherMetrics]).in(Scopes.SINGLETON)
@@ -148,42 +148,6 @@ class MarathonModule(conf: MarathonConf, http: HttpConf, zk: ZooKeeperClient)
       case Some("mem")             => new InMemoryStore()
       case backend: Option[String] => throw new IllegalArgumentException(s"Storage backend $backend not known!")
     }
-  }
-
-  @Provides
-  @Singleton
-  def provideMesosMasterUtil(): MesosMasterUtil = {
-    val filePattern = s"""^file:///.*$$""".r
-
-    val userName = """[^/@:]+"""
-    val passwd = """[^/@:]+"""
-    val credentials = s"($userName):($passwd)@"
-    val hostAndPort = """[A-z0-9-.]+(?::\d+)?"""
-    val zkNode = """[^/]+"""
-    val zkURLPattern = s"""^zk://(?:$credentials)?($hostAndPort(?:,$hostAndPort)*)(/$zkNode(?:/$zkNode)*)$$""".r
-
-    def findZkConfig(configValue: String): MesosMasterUtil = {
-      configValue match {
-        case zkURLPattern(username, password, hosts, path) => {
-          implicit val timer = com.twitter.util.Timer.Nil
-          import com.twitter.util.TimeConversions._
-          val sessionTimeout = conf.zooKeeperSessionTimeout.get.map(_.millis).getOrElse(30.minutes)
-          val authInfo = for {
-            uName <- Option(username)
-            pass <- Option(password)
-            authInfo <- Some(AuthInfo.digest(uName, pass))
-          } yield authInfo
-          val connector = NativeConnector(hosts, None, sessionTimeout, timer, authInfo)
-          val client = ZkClient(connector)
-            .withAcl(Ids.OPEN_ACL_UNSAFE.asScala)
-            .withRetries(3)
-          new ZkMesosMasterUtil(client, path)
-        }
-        case filePattern() => findZkConfig(scala.io.Source.fromFile(configValue).mkString)
-        case _             => new ConstMesosMasterUtil(configValue)
-      }
-    }
-    findZkConfig(conf.mesosMaster())
   }
 
   //scalastyle:off parameter.number method.length

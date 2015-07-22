@@ -35,7 +35,7 @@ class DefaultTaskFactory @Inject() (
             offer.getAttributesList.asScala, app.version
           ).toBuilder.setMesosTaskUrl(
               "%s/#/slaves/%s/frameworks/%s/executors/%s/".format(
-                mesosMasterUtil.getMasterUrl,
+                mesosMasterUtil.masterUrl,
                 offer.getSlaveId.getValue,
                 offer.getFrameworkId.getValue,
                 taskInfo.getTaskId.getValue)
