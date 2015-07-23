@@ -57,7 +57,7 @@ class ZkMesosMasterUtil(zkClient: ZkClient, path: String) extends MesosMasterUti
 
   override def masterUrl: String = {
     val children = Await.result(zkClient(path).getChildren()).children
-    val infoChildren = children.filter(x => x.path.startsWith("info"))
+    val infoChildren = children.filter(x => x.path.contains("info_"))
     val firstInfoChildrenData = infoChildren.head.getData()
     val masterInfo = MasterInfo.parseFrom(Await.result(firstInfoChildrenData).bytes)
     s"http://${masterInfo.getHostname}:${masterInfo.getPort}"

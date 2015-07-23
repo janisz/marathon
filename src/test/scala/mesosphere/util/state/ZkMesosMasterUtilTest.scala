@@ -18,11 +18,13 @@ class ZkMesosMasterUtilTest extends IntegrationFunSuite with StartedZookeeper wi
   test("read mesos master from zk"){
     Given("zk contains mesos masterInfo value")
     val masterInfo = MasterInfo.newBuilder()
+      .setId("00000-0000")
+      .setIp(127)
       .setHostname("localhost")
-      .setPort(2890).build()
-    mesosStore.create("info_0001", masterInfo.toByteArray).futureValue
+      .setPort(5050).build()
+    mesosStore.create("info_0000", masterInfo.toByteArray).futureValue
     val conf = makeConfig(
-      "--master", config.zkPath
+      "--master", config.zk
     )
     val masterUtil = MesosMasterUtil(conf)
 
@@ -30,8 +32,8 @@ class ZkMesosMasterUtilTest extends IntegrationFunSuite with StartedZookeeper wi
 
     val masterUrl = masterUtil.masterUrl
 
-    Then("")
-    val expected = "http://localhost:2890"
+    Then("masterUrl should be same as stored in zk")
+    val expected = "http://localhost:5050"
     masterUrl should equal(expected)
 
   }
