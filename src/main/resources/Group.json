@@ -20,7 +20,7 @@
       "type": "array",
       "description": "The list of AppDefinitions in this group. See AppDefinition.json for the schema.",
       "items": {
-        "$ref": "/public/api/v2/schema/AppDefinition.json/AppDefinition.json"
+        "$ref": "./AppDefinition.json"
       }
     },
     "groups": {

@@ -78,7 +78,7 @@ class AppsResourceTest extends MarathonSpec with Matchers with Mockito with Give
 
     Then("A constraint violation exception is thrown")
     val body = invalidAppJson.getBytes("UTF-8")
-    intercept[RuntimeException] { appsResource.create(body, false, auth.request, auth.response) }
+    intercept[JsonSchemaValidationException] { appsResource.create(body, false, auth.request, auth.response) }
   }
 
   test("Replace an existing application") {

@@ -1,7 +1,9 @@
 package mesosphere.marathon.api
 
+import javax.servlet.http.HttpServletResponse._
 import javax.ws.rs.ext.{ Provider, ExceptionMapper }
 import javax.ws.rs.core.{ MediaType, Response }
+import mesosphere.marathon.api.v2.JsonSchemaValidationException
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.google.inject.Singleton
 import org.slf4j.LoggerFactory
@@ -40,18 +42,18 @@ class MarathonExceptionMapper extends ExceptionMapper[Exception] {
   //scalastyle:off magic.number cyclomatic.complexity
   private def statusCode(exception: Exception): Int = exception match {
     //scalastyle:off magic.number
-    case e: TimeoutException           => 503 // Service Unavailable
-    case e: UnknownAppException        => 404 // Not found
-    case e: AppLockedException         => 409 // Conflict
-    case e: ConflictingChangeException => 409 // Conflict
-    case e: BadRequestException        => 400 // Bad Request
-    case e: JsonParseException         => 400 // Bad Request
-    case e: JsResultException          => 400 // Bad Request
-    case e: JsonMappingException       => 400 // Bad Request
+    case e: TimeoutException           => SC_SERVICE_UNAVAILABLE
+    case e: UnknownAppException        => SC_NOT_FOUND
+    case e: AppLockedException         => SC_CONFLICT
+    case e: ConflictingChangeException => SC_CONFLICT
+    case e: BadRequestException        => SC_BAD_REQUEST
+    case e: JsonParseException         => SC_BAD_REQUEST
+    case e: JsResultException          => SC_BAD_REQUEST
+    case e: JsonMappingException       => SC_BAD_REQUEST
     case e: IllegalArgumentException   => 422 // Unprocessable entity
     case e: ValidationFailedException  => 422 // Unprocessable Entity
     case e: WebApplicationException    => e.getResponse.getStatus
-    case _                             => 500 // Internal server error
+    case _                             => SC_INTERNAL_SERVER_ERROR
     //scalastyle:on
   }
 
@@ -62,6 +64,11 @@ class MarathonExceptionMapper extends ExceptionMapper[Exception] {
       Json.obj(
         "message" -> e.getMessage,
         "deployments" -> e.deploymentIds.map(id => Json.obj("id" -> id))
+      )
+    case e: JsonSchemaValidationException =>
+      Json.obj(
+        "message" -> "Invalid JSON",
+        "details" -> e.report.asJson()
       )
     case e: JsonParseException =>
       Json.obj(

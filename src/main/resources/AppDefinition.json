@@ -56,20 +56,11 @@
       "type": "array",
       "items": {
         "type": "array",
-        "items": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "string",
-            "enum": ["UNIQUE", "CLUSTER", "GROUP_BY", "LIKE", "UNLIKE"]
-          },
-          {
-            "type": "string"
-          }
-        ],
-        "minItems": 2,
-        "additionalItems": false
+        "items": {
+          "type": "string",
+          "maximum": 3,
+          "minimum": 2
+        }
       },
       "description": "Valid constraint operators are one of UNIQUE, CLUSTER, GROUP_BY, LIKE, UNLIKE."
     },
@@ -215,40 +206,6 @@
       "type": "string",
       "description": "The executor to use to launch this application. Different executors are available. The simplest one (and the default if none is given) is //cmd, which takes the cmd and executes that on the shell level.",
       "pattern": "^(|\\/\\/cmd|\\/?[^\\/]+(\\/[^\\/]+)*)$"
-    },
-    "fetch": {
-      "type": "array",
-      "description": "Provided URIs are passed to Mesos fetcher module and resolved in runtime.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "uri": {
-            "value": {
-              "type": "string",
-              "description": "URI to be fetched by Mesos fetcher module"
-            }
-          },
-          "executable": {
-            "value": {
-              "type": "boolean",
-              "description": "Set fetched artifact as executable"
-            }
-          },
-          "extract": {
-            "value": {
-              "type": "boolean",
-              "description": "Extract fetched artifact if supported by Mesos fetcher module"
-            }
-          },
-          "cache": {
-            "value": {
-              "type": "boolean",
-              "description": "Cache fetched artifact if supported by Mesos fetcher module"
-            }
-          }
-        }
-      }
     },
     "healthChecks": {
       "items": {
@@ -486,3 +443,4 @@
   ],
   "type": "object"
 }
+

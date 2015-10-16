@@ -20,7 +20,7 @@ import mesosphere.marathon.state.PathId._
 import mesosphere.marathon.state._
 import mesosphere.marathon.{ ConflictingChangeException, MarathonConf, MarathonSchedulerService, UnknownAppException }
 import org.slf4j.LoggerFactory
-import play.api.libs.json.Json
+import play.api.libs.json.{ JsValue, Json }
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
@@ -45,6 +45,7 @@ class AppsResource @Inject() (
 
   private[this] val log = LoggerFactory.getLogger(getClass)
   private[this] val ListApps = """^((?:.+/)|)\*$""".r
+  private[this] val schemaValidator = new JsonSchemaValidator()
 
   @GET
   @Timed
@@ -68,7 +69,9 @@ class AppsResource @Inject() (
              @DefaultValue("false")@QueryParam("force") force: Boolean,
              @Context req: HttpServletRequest, @Context resp: HttpServletResponse): Response = {
     val now = clock.now()
-    withValid(Json.parse(body).as[AppDefinition].withCanonizedIds()) { appDef =>
+    val jsValue: JsValue = Json.parse(body)
+    schemaValidator.validateApp(jsValue)
+    withValid(jsValue.as[AppDefinition].withCanonizedIds()) { appDef =>
       val app = appDef.copy(versionInfo = AppDefinition.VersionInfo.OnlyVersion(now))
       doIfAuthorized(req, resp, CreateAppOrGroup, app.id) { identity =>
         def createOrThrow(opt: Option[AppDefinition]) = opt

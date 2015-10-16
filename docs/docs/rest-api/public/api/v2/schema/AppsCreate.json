@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "https://raw.githubusercontent.com/mesosphere/marathon/master/docs/docs/rest-api/public/api/v2/schema/AppsCreate.json",
+  "additionalProperties": false,
+  "type": "array",
+  "items": {
+    "$ref": "/public/api/v2/schema/AppDefinition.json/AppDefinition.json"
+  }
+}
