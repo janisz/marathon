@@ -35,8 +35,8 @@ trait ReadinessBehavior { this: Actor with ActorLogging =>
   val versionString: String = version.toString
 
   //state managed by this behavior
-  private[this] var healthy = Set.empty[Task.Id]
-  private[this] var ready = Set.empty[Task.Id]
+  var healthy = Set.empty[Task.Id]
+  var ready = Set.empty[Task.Id]
   private[this] var subscriptions = Map.empty[ReadinessCheckSubscriptionKey, Subscription]
 
   /**

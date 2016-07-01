@@ -8,8 +8,9 @@ import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.event.{ DeploymentStatus, HealthStatusChanged, MesosStatusUpdateEvent }
 import mesosphere.marathon.health.HealthCheck
+import mesosphere.marathon.state.AppDefinition.VersionInfo.OnlyVersion
 import mesosphere.marathon.state.PathId._
-import mesosphere.marathon.state.{ AppDefinition, UpgradeStrategy }
+import mesosphere.marathon.state.{ AppDefinition, Timestamp, UpgradeStrategy }
 import mesosphere.marathon.test.MarathonActorSupport
 import mesosphere.marathon.upgrade.TaskReplaceActor.RetryKills
 import mesosphere.marathon.{ MarathonTestHelper, TaskUpgradeCanceledException }
@@ -317,6 +318,91 @@ class TaskReplaceActorTest
 
     // all old tasks are killed
     verify(f.driver).killTask(taskA.launchedMesosId.get)
+    verify(f.driver).killTask(taskB.launchedMesosId.get)
+    verify(f.driver).killTask(taskC.launchedMesosId.get)
+
+    expectTerminated(ref)
+  }
+
+  test("Replace with rolling upgrade with minimal over-capacity with tasks in proper versions") {
+    val f = new Fixture
+    val app = AppDefinition(
+      id = "myApp".toPath,
+      versionInfo = OnlyVersion(Timestamp(1)),
+      instances = 3,
+      healthChecks = Set(HealthCheck()),
+      upgradeStrategy = UpgradeStrategy(1.0, 0.0) // 1 task over-capacity is ok
+    )
+
+    val taskA = MarathonTestHelper.runningTask("taskA_id")
+    val taskB = MarathonTestHelper.runningTask("taskB_id")
+    val taskC = MarathonTestHelper.runningTask("taskC_id")
+
+    when(f.tracker.appTasksLaunchedSync(app.id)).thenReturn(Iterable(taskA, taskB, taskC))
+
+    val promise = Promise[Unit]()
+
+    val ref = f.replaceActor(app, promise)
+    watch(ref)
+
+    Await.result(promise.future, 5.seconds)
+
+    // no tasks were killed nor queued
+    verifyNoMoreInteractions(f.driver)
+
+    expectTerminated(ref)
+  }
+
+  test("Replace with rolling upgrade with minimal over-capacity with 1 task in proper version") {
+    val f = new Fixture
+    val app = AppDefinition(
+      id = "myApp".toPath,
+      versionInfo = OnlyVersion(Timestamp(1)),
+      instances = 3,
+      healthChecks = Set(HealthCheck()),
+      upgradeStrategy = UpgradeStrategy(1.0, 0.0) // 1 task over-capacity is ok
+    )
+
+    val taskA = MarathonTestHelper.runningTask("taskA_id")
+    val taskB = MarathonTestHelper.runningTask("taskB_id", appVersion = Timestamp(2))
+    val taskC = MarathonTestHelper.runningTask("taskC_id", appVersion = Timestamp(3))
+
+    var oldTaskCount = 3
+
+    when(f.tracker.appTasksLaunchedSync(app.id)).thenReturn(Iterable(taskA, taskB, taskC))
+    when(f.driver.killTask(any[TaskID])).thenAnswer(new Answer[Status] {
+      def answer(invocation: InvocationOnMock): Status = {
+        val taskId = Task.Id(invocation.getArguments()(0).asInstanceOf[TaskID])
+        val update = MesosStatusUpdateEvent("", taskId, "TASK_KILLED", "", app.id, "", None, Nil, app.version.toString)
+        system.eventStream.publish(update)
+
+        oldTaskCount -= 1
+        Status.DRIVER_RUNNING
+      }
+    })
+
+    val promise = Promise[Unit]()
+
+    val ref = f.replaceActor(app, promise)
+    watch(ref)
+
+    // only one task is queued directly, all old still running
+    val queueOrder = org.mockito.Mockito.inOrder(f.queue)
+    eventually { queueOrder.verify(f.queue).add(_: AppDefinition, 1) }
+    assert(oldTaskCount == 3)
+
+    // first new task becomes healthy and another old task is killed
+    ref ! HealthStatusChanged(app.id, Task.Id("task_0"), app.version, alive = true)
+    eventually { oldTaskCount should be(2) }
+    eventually { queueOrder.verify(f.queue).add(_: AppDefinition, 1) }
+
+    // second new task becomes healthy and another old task is killed
+    ref ! HealthStatusChanged(app.id, Task.Id("task_1"), app.version, alive = true)
+    queueOrder.verify(f.queue, never()).add(_: AppDefinition, 1)
+
+    Await.result(promise.future, 5.seconds)
+
+    // all old tasks are killed
     verify(f.driver).killTask(taskB.launchedMesosId.get)
     verify(f.driver).killTask(taskC.launchedMesosId.get)
 

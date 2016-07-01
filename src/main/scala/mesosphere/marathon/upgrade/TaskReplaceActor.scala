@@ -31,10 +31,13 @@ class TaskReplaceActor(
     promise: Promise[Unit]) extends Actor with ReadinessBehavior with ActorLogging {
   import context.dispatcher
 
-  val tasksToKill = taskTracker.appTasksLaunchedSync(app.id)
+  val oldTasks = taskTracker.appTasksLaunchedSync(app.id)
+  val tasksToKill = oldTasks.filterNot(_.launched.get.runSpecVersion == version)
+  var tasksToKillIds = tasksToKill.map(_.taskId).to[SortedSet]
+  val toKill = tasksToKillIds.to[mutable.Queue]
+  var oldTaskIds = oldTasks.map(_.taskId).to[SortedSet]
+  val tasksToStayIds = oldTaskIds -- tasksToKillIds
   var newTasksStarted: Int = 0
-  var oldTaskIds = tasksToKill.map(_.taskId).to[SortedSet]
-  val toKill = oldTaskIds.to[mutable.Queue]
   var maxCapacity = (app.instances * (1 + app.upgradeStrategy.maximumOverCapacity)).toInt
   var outstandingKills = Set.empty[Task.Id]
   val periodicalRetryKills: Cancellable = context.system.scheduler.schedule(15.seconds, 15.seconds, self, RetryKills)
@@ -51,7 +54,13 @@ class TaskReplaceActor(
       killNextOldTask()
     }
 
+    // FIXME: Check if tasksToStay are healthy
+    tasksToStayIds.foreach(healthy += _)
+    // FIXME: Check if tasksToStay are ready
+    tasksToStayIds.foreach(ready += _)
+
     reconcileNewTasks()
+    checkFinished()
 
     log.info("Resetting the backoff delay before restarting the app")
     launchQueue.resetDelay(app)
@@ -79,6 +88,7 @@ class TaskReplaceActor(
     // Old task successfully killed
     case MesosStatusUpdateEvent(slaveId, taskId, KillComplete(_), _, `appId`, _, _, _, _, _, _) if oldTaskIds(taskId) => // scalastyle:ignore line.size.limit
       oldTaskIds -= taskId
+      tasksToKillIds -= taskId
       outstandingKills -= taskId
       reconcileNewTasks()
       checkFinished()
@@ -96,7 +106,7 @@ class TaskReplaceActor(
 
   def reconcileNewTasks(): Unit = {
     val leftCapacity = math.max(0, maxCapacity - oldTaskIds.size - newTasksStarted)
-    val tasksNotStartedYet = math.max(0, app.instances - newTasksStarted)
+    val tasksNotStartedYet = math.max(0, app.instances - tasksToStayIds.size - newTasksStarted)
     val tasksToStartNow = math.min(tasksNotStartedYet, leftCapacity)
     if (tasksToStartNow > 0) {
       log.info(s"Reconciling tasks during app $appId restart: queuing $tasksToStartNow new tasks")
@@ -122,8 +132,8 @@ class TaskReplaceActor(
   }
 
   def checkFinished(): Unit = {
-    if (taskTargetCountReached(app.instances) && oldTaskIds.isEmpty) {
-      log.info(s"App All new tasks for $appId are ready and all old tasks have been killed")
+    if (taskTargetCountReached(app.instances) && oldTaskIds == tasksToStayIds) {
+      log.info(s"App All new tasks for $appId are ready and ${tasksToStayIds.size} were preserved other tasks have been killed")
       promise.success(())
       context.stop(self)
     } else if (log.isDebugEnabled) {

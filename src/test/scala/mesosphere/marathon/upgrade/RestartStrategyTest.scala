@@ -133,6 +133,23 @@ class RestartStrategyTest extends FunSuite with Matchers with GivenWhenThen with
     strategy.nrToKillImmediately shouldBe 0
   }
 
+  test("strategy for normal app with 3 instances and 1 in proper version ") {
+    Given("A normal app")
+    val app = AppDefinition(
+      id = PathId("/app"),
+      instances = 3,
+      upgradeStrategy = UpgradeStrategy(minimumHealthCapacity = 0.5, maximumOverCapacity = 0))
+
+    When("the ignition strategy is computed")
+    val strategy = computeRestartStrategy(app, runningTasksCount = app.instances)
+
+    Then("the app instance count is exceeded by one")
+    strategy.maxCapacity shouldBe 3
+
+    And("we kill 0 tasks immediately")
+    strategy.nrToKillImmediately shouldBe 1
+  }
+
   test("strategy for normal app with 1 instance and no tasks running") {
     Given("A normal app")
     val app = AppDefinition(
