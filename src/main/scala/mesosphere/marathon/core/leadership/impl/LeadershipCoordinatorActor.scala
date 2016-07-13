@@ -4,6 +4,7 @@ import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Stash, Status, Termina
 import akka.event.LoggingReceive
 import mesosphere.marathon.core.leadership.PreparationMessages
 import mesosphere.marathon.core.leadership.impl.WhenLeaderActor.Stop
+import net.logstash.logback.argument.StructuredArguments.value
 
 private[leadership] object LeadershipCoordinatorActor {
   def props(whenLeaderActors: Set[ActorRef]): Props = {
@@ -23,11 +24,13 @@ private class LeadershipCoordinatorActor(var whenLeaderActors: Set[ActorRef])
   override def receive: Receive = suspended
 
   private[impl] def suspended: Receive = {
-    log.info("All actors suspended:\n{}", whenLeaderActors.map(actorRef => s"* $actorRef").mkString("\n"))
+    log.info(
+      "All actors suspended:\n{}",
+      value("actors", whenLeaderActors.map(actorRef => s"* $actorRef").mkString("\n")))
 
     LoggingReceive.withLabel("suspended") {
       case Terminated(actorRef) =>
-        log.error("unexpected death of {}", actorRef)
+        log.error("unexpected death of {}", value("actorRef", actorRef))
         whenLeaderActors -= actorRef
 
       case PreparationMessages.PrepareForStart =>
@@ -55,7 +58,7 @@ private class LeadershipCoordinatorActor(var whenLeaderActors: Set[ActorRef])
           context.become(preparingForStart(ackStartRefs, whenLeaderActorsWithoutAck - whenLeaderRef))
 
         case Terminated(actorRef) =>
-          log.error("unexpected death of {}", actorRef)
+          log.error("unexpected death of {}", value("actorRef", actorRef))
           whenLeaderActors -= actorRef
           context.become(preparingForStart(ackStartRefs - actorRef, whenLeaderActorsWithoutAck - actorRef))
 
@@ -70,11 +73,11 @@ private class LeadershipCoordinatorActor(var whenLeaderActors: Set[ActorRef])
   }
 
   private[impl] def active: Receive = LoggingReceive.withLabel("active") {
-    log.info("All actors active:\n{}", whenLeaderActors.map(actorRef => s"* $actorRef").mkString("\n"))
+    log.info("All actors active:\n{}", value("actors", whenLeaderActors.map(actorRef => s"* $actorRef").mkString("\n")))
 
     LoggingReceive.withLabel("active") {
       case Terminated(actorRef) =>
-        log.error("unexpected death of {}", actorRef)
+        log.error("unexpected death of {}", value("actorRef", actorRef))
         whenLeaderActors -= actorRef
 
       case PreparationMessages.PrepareForStart => sender() ! PreparationMessages.Prepared(self)

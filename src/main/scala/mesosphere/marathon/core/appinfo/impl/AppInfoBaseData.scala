@@ -10,6 +10,7 @@ import mesosphere.marathon.health.{ Health, HealthCheckManager }
 import mesosphere.marathon.state._
 import mesosphere.marathon.upgrade.DeploymentManager.DeploymentStepInfo
 import mesosphere.marathon.upgrade.DeploymentPlan
+import net.logstash.logback.argument.StructuredArguments.value
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.Seq
@@ -100,7 +101,7 @@ class AppInfoBaseData(
     lazy val tasksFuture: Future[Iterable[Task]] = tasksByAppFuture.map(_.appTasks(app.id))
 
     lazy val healthCountsFuture: Future[Map[Task.Id, Seq[Health]]] = {
-      log.debug(s"retrieving health counts for app [${app.id}]")
+      log.debug("retrieving health counts for app [{}]", value("appId", app.id))
       healthCheckManager.statuses(app.id)
     }.recover {
       case NonFatal(e) => throw new RuntimeException(s"while retrieving health counts for app [${app.id}]", e)
@@ -116,7 +117,7 @@ class AppInfoBaseData(
     }
 
     lazy val taskCountsFuture: Future[TaskCounts] = {
-      log.debug(s"calculating task counts for app [${app.id}]")
+      log.debug("calculating task counts for app [{}]", value("appId", app.id))
       for {
         tasks <- tasksForStats
       } yield TaskCounts(tasks)

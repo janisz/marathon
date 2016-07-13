@@ -9,6 +9,7 @@ import mesosphere.marathon.api.v2.json.Formats._
 import mesosphere.marathon.event.http.HttpEventStreamHandleActor.WorkDone
 import mesosphere.marathon.event.{ EventStreamAttached, EventStreamDetached, MarathonEvent }
 import mesosphere.util.ThreadPoolContext
+import net.logstash.logback.argument.StructuredArguments.value
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
@@ -77,11 +78,19 @@ class HttpEventStreamHandleActor(
       //Do not act any longer on any event.
       context.become(Actor.emptyBehavior)
     case _ =>
-      log.warning("Could not send message to {} reason: {}", handle, ex)
+      log.warning(
+        "Could not send message to {} reason: {}",
+        value("handle", handle),
+        value("exception", ex)
+      )
   }
 
   private[this] def dropEvent(event: MarathonEvent): Unit = {
-    log.warning("Ignore event {} for handle {} (slow consumer)", event, handle)
+    log.warning(
+      "Ignore event {} for handle {} (slow consumer)",
+      value("handle", event),
+      value("handle", handle)
+    )
   }
 }
 

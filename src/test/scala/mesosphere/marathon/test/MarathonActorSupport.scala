@@ -3,6 +3,7 @@ package mesosphere.marathon.test
 import akka.actor.ActorSystem
 import akka.testkit.{ TestKit, TestKitBase }
 import com.typesafe.config.ConfigFactory
+import net.logstash.logback.argument.StructuredArguments.value
 import org.scalatest.{ BeforeAndAfterAll, Suite }
 import org.slf4j.LoggerFactory
 
@@ -19,11 +20,11 @@ trait MarathonActorSupport extends Suite with TestKitBase with BeforeAndAfterAll
   private[this] lazy val stoppingConfig = ConfigFactory.parseString(stoppingConfigStr)
 
   implicit lazy val system: ActorSystem = ActorSystem(getClass.getSimpleName, stoppingConfig)
-  log.info("actor system {}: starting", system.name)
+  log.info("actor system {}: starting", value("systemName", system.name))
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    log.info("actor system {}: shutting down", system.name)
+    log.info("actor system {}: shutting down", value("systemName", system.name))
     TestKit.shutdownActorSystem(system)
   }
 }

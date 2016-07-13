@@ -11,6 +11,7 @@ import mesosphere.marathon.core.task.update.TaskUpdateStep
 import mesosphere.marathon.core.task.{ EffectiveTaskStateChange, Task, TaskStateOp }
 import mesosphere.marathon.event.{ EventModule, MesosStatusUpdateEvent }
 import mesosphere.marathon.state.Timestamp
+import net.logstash.logback.argument.StructuredArguments.value
 import org.apache.mesos.Protos.TaskStatus
 import org.slf4j.LoggerFactory
 
@@ -41,7 +42,7 @@ class PostToEventStreamStepImpl @Inject() (
         postEvent(clock.now(), task.mesosStatus, task)
 
       case _ =>
-        log.debug("Ignoring noop for {}", taskChanged.taskId)
+        log.debug("Ignoring noop for {}", value("taskId", taskChanged.taskId))
     }
 
     Future.successful(())
@@ -56,7 +57,9 @@ class PostToEventStreamStepImpl @Inject() (
     } {
       log.info(
         "Sending event notification for {} of app [{}]: {}",
-        Array[Object](taskId, taskId.runSpecId, status.getState): _*
+        value("taskId", taskId),
+        value("appId", taskId.runSpecId),
+        value("state", status.getState)
       )
       eventBus.publish(
         MesosStatusUpdateEvent(

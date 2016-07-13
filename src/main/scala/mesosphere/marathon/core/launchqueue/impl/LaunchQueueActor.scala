@@ -1,22 +1,15 @@
 package mesosphere.marathon.core.launchqueue.impl
 
 import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{
-  Terminated,
-  Actor,
-  ActorLogging,
-  ActorRef,
-  OneForOneStrategy,
-  Props,
-  SupervisorStrategy
-}
+import akka.actor.{ Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated }
 import akka.event.LoggingReceive
 import akka.pattern.{ ask, pipe }
 import akka.util.Timeout
-import mesosphere.marathon.core.launchqueue.{ LaunchQueueConfig, LaunchQueue }
+import mesosphere.marathon.core.launchqueue.{ LaunchQueue, LaunchQueueConfig }
 import mesosphere.marathon.core.task.bus.TaskChangeObservables.TaskChanged
-import mesosphere.marathon.state.{ RunSpec, PathId }
+import mesosphere.marathon.state.{ PathId, RunSpec }
 import LaunchQueue.QueuedTaskInfo
+import net.logstash.logback.argument.StructuredArguments.value
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -102,7 +95,11 @@ private[impl] class LaunchQueueActor(
 
           suspendedLaunchersMessages.get(actorRef) match {
             case None =>
-              log.warning("Got unexpected terminated for runSpec {}: {}", pathId, actorRef)
+              log.warning(
+                "Got unexpected terminated for runSpec {}: {}",
+                value("pathId", pathId),
+                value("actorRef", actorRef)
+              )
             case Some(deferredMessages) =>
               deferredMessages.foreach(msg => self.tell(msg.message, msg.sender))
 
@@ -110,7 +107,7 @@ private[impl] class LaunchQueueActor(
               suspendedLaunchersMessages -= actorRef
           }
         case None =>
-          log.warning("Don't know anything about terminated actor: {}", actorRef)
+          log.warning("Don't know anything about terminated actor: {}", value("actorRef", actorRef))
       }
   }
 

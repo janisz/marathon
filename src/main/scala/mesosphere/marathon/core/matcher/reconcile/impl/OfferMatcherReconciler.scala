@@ -10,6 +10,7 @@ import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.core.task.tracker.TaskTracker.TasksByApp
 import mesosphere.marathon.state.{ Group, GroupRepository, Timestamp }
 import mesosphere.util.state.FrameworkId
+import net.logstash.logback.argument.StructuredArguments.value
 import org.apache.mesos.Protos.{ Offer, OfferID, Resource }
 import org.slf4j.LoggerFactory
 
@@ -82,8 +83,16 @@ private[reconcile] class OfferMatcherReconciler(taskTracker: TaskTracker, groupR
 
   private[this] def source(offerId: OfferID) = new TaskOpSource {
     override def taskOpAccepted(taskOp: TaskOp): Unit =
-      log.info(s"accepted unreserveAndDestroy for ${taskOp.taskId} in offer [${offerId.getValue}]")
+      log.info(
+        "accepted unreserveAndDestroy for {} in offer [{}]",
+        Array[Object](value("taskId", taskOp.taskId), value("offerId", offerId.getValue)): _*
+      )
     override def taskOpRejected(taskOp: TaskOp, reason: String): Unit =
-      log.info("rejected unreserveAndDestroy for {} in offer [{}]: {}", taskOp.taskId, offerId.getValue, reason)
+      log.info(
+        "rejected unreserveAndDestroy for {} in offer [{}]: {}",
+        value("taskId", taskOp.taskId),
+        value("offerId", offerId.getValue),
+        value("reason", reason)
+      )
   }
 }

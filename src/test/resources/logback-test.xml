@@ -3,7 +3,7 @@
 <configuration>
     <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>[%date] %level [%X{akkaSource}] %message%n</pattern>
+            <pattern>TEST ### [%date] %level %message \(%logger:%thread\)%n</pattern>
         </encoder>
     </appender>
 

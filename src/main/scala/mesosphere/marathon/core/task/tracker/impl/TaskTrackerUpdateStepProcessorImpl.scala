@@ -3,8 +3,9 @@ package mesosphere.marathon.core.task.tracker.impl
 import mesosphere.marathon.core.task.bus.TaskChangeObservables.TaskChanged
 import mesosphere.marathon.core.task.tracker.TaskTrackerUpdateStepProcessor
 import mesosphere.marathon.core.task.update.TaskUpdateStep
-import mesosphere.marathon.metrics.{ Metrics, MetricPrefixes }
+import mesosphere.marathon.metrics.{ MetricPrefixes, Metrics }
 import mesosphere.marathon.metrics.Metrics.Timer
+import net.logstash.logback.argument.StructuredArguments.value
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -25,17 +26,21 @@ private[tracker] class TaskTrackerUpdateStepProcessorImpl(
 
   log.info(
     "Started TaskTrackerUpdateStepsProcessorImpl with steps:\n{}",
-    steps.map(step => s"* ${step.name}").mkString("\n"))
+    value("steps", steps.map(step => s"* ${step.name}").mkString("\n"))
+  )
 
   override def process(taskChanged: TaskChanged)(implicit ec: ExecutionContext): Future[Unit] = {
     steps.foldLeft(Future.successful(())) { (resultSoFar, nextStep) =>
       resultSoFar.flatMap { _ =>
         stepTimers(nextStep.name).timeFuture {
-          log.debug("Executing {} for [{}]", Array[Object](nextStep.name, taskChanged.taskId.idString): _*)
+          log.debug(
+            "Executing {} for [{}]",
+            Array[Object](value("step", nextStep.name), value("tasks", taskChanged.taskId.idString)): _*
+          )
           nextStep.processUpdate(taskChanged).map { _ =>
             log.debug(
               "Done with executing {} for [{}]",
-              Array[Object](nextStep.name, taskChanged.taskId.idString): _*
+              Array[Object](value("step", nextStep.name), value("tasks", taskChanged.taskId.idString)): _*
             )
           }
         }

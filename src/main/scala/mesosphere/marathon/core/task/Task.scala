@@ -2,8 +2,9 @@ package mesosphere.marathon.core.task
 
 import com.fasterxml.uuid.{ EthernetAddress, Generators }
 import mesosphere.marathon.core.task.bus.MarathonTaskStatus
-import mesosphere.marathon.state.{ RunSpec, PathId, PersistentVolume, Timestamp }
-import org.apache.mesos.Protos.{ TaskState }
+import mesosphere.marathon.state.{ PathId, PersistentVolume, RunSpec, Timestamp }
+import net.logstash.logback.argument.StructuredArguments.value
+import org.apache.mesos.Protos.TaskState
 import org.apache.mesos.Protos.TaskState._
 import org.apache.mesos.{ Protos => MesosProtos }
 import org.slf4j.LoggerFactory
@@ -131,7 +132,7 @@ object Task {
             val updatedTask = copy(status = status.copy(mesosStatus = Some(newStatus)))
             TaskStateChange.Update(newState = updatedTask, oldState = Some(this))
           case None =>
-            log.debug("Ignoring status update for {}. Status did not change.", taskId)
+            log.debug("Ignoring status update for {}. Status did not change.", value("taskId", taskId))
             TaskStateChange.NoChange(taskId)
         }
 
@@ -245,7 +246,7 @@ object Task {
           val updatedTask = copy(status = status.copy(mesosStatus = Some(newStatus)))
           TaskStateChange.Update(newState = updatedTask, oldState = Some(this))
         } getOrElse {
-          log.debug("Ignoring status update for {}. Status did not change.", taskId)
+          log.debug("Ignoring status update for {}. Status did not change.", value("taskId", taskId))
           TaskStateChange.NoChange(taskId)
         }
 

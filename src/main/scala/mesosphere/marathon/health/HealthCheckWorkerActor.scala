@@ -10,6 +10,7 @@ import mesosphere.marathon.Protos.HealthCheckDefinition.Protocol.{ COMMAND, HTTP
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
 import mesosphere.util.ThreadPoolContext
+import net.logstash.logback.argument.StructuredArguments.value
 import spray.client.pipelining._
 import spray.http._
 
@@ -84,7 +85,7 @@ class HealthCheckWorkerActor extends Actor with ActorLogging {
     val rawPath = check.path.getOrElse("")
     val absolutePath = if (rawPath.startsWith("/")) rawPath else s"/$rawPath"
     val url = s"http://$host:$port$absolutePath"
-    log.debug("Checking the health of [{}] via HTTP", url)
+    log.debug("Checking the health of [{}] via HTTP", value("url", url))
 
     def get(url: String): Future[HttpResponse] = {
       implicit val requestTimeout = Timeout(check.timeout)
@@ -108,7 +109,7 @@ class HealthCheckWorkerActor extends Actor with ActorLogging {
     task: Task, launched: Task.Launched, check: HealthCheck, host: String, port: Int): Future[Option[HealthResult]] = {
     val address = s"$host:$port"
     val timeoutMillis = check.timeout.toMillis.toInt
-    log.debug("Checking the health of [{}] via TCP", address)
+    log.debug("Checking the health of [{}] via TCP", value("address", address))
 
     Future {
       val address = new InetSocketAddress(host, port)
@@ -126,7 +127,7 @@ class HealthCheckWorkerActor extends Actor with ActorLogging {
     val rawPath = check.path.getOrElse("")
     val absolutePath = if (rawPath.startsWith("/")) rawPath else s"/$rawPath"
     val url = s"https://$host:$port$absolutePath"
-    log.debug("Checking the health of [{}] via HTTPS", url)
+    log.debug("Checking the health of [{}] via HTTPS", value("url", url))
 
     def get(url: String): Future[HttpResponse] = {
       implicit val requestTimeout = Timeout(check.timeout)

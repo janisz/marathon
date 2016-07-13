@@ -3,6 +3,7 @@ package mesosphere.marathon.core.task.bus.impl
 import mesosphere.marathon.core.task.TaskStateOp
 import mesosphere.marathon.core.task.bus.TaskStatusEmitter
 import mesosphere.marathon.core.task.bus.TaskChangeObservables.TaskChanged
+import net.logstash.logback.argument.StructuredArguments.value
 import org.slf4j.LoggerFactory
 
 private[bus] class TaskStatusEmitterImpl(internalTaskStatusEventStream: InternalTaskChangeEventStream)
@@ -12,7 +13,7 @@ private[bus] class TaskStatusEmitterImpl(internalTaskStatusEventStream: Internal
   override def publish(taskChanged: TaskChanged): Unit = {
     taskChanged.stateOp match {
       case TaskStateOp.MesosUpdate(task, status, timestamp) =>
-        log.debug("publishing update {}", taskChanged)
+        log.debug("publishing update {}", value("task", taskChanged))
         internalTaskStatusEventStream.publish(taskChanged)
 
       case _ =>

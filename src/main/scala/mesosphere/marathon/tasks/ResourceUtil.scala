@@ -1,9 +1,11 @@
 package mesosphere.marathon.tasks
 
 import com.twitter.util.NonFatal
+import net.logstash.logback.argument.StructuredArguments.value
 import org.apache.mesos.Protos.Resource.{ DiskInfo, ReservationInfo }
 import org.apache.mesos.{ Protos => MesosProtos }
 import org.slf4j.LoggerFactory
+
 import scala.collection.JavaConverters._
 
 object ResourceUtil {
@@ -121,7 +123,9 @@ object ResourceUtil {
       case MesosProtos.Value.Type.SET => consumeSetResource
 
       case unexpectedResourceType: MesosProtos.Value.Type =>
-        log.warn("unexpected resourceType {} for resource {}", Seq(unexpectedResourceType, resource.getName): _*)
+        log.warn(
+          "unexpected resourceType {} for resource {}",
+          Seq(value("resourceType", unexpectedResourceType), value("resource", resource.getName)): _*)
         // we don't know the resource, thus we consume it completely
         None
     }
@@ -144,13 +148,21 @@ object ResourceUtil {
               if (resource.getType != usedResource.getType) {
                 log.warn(
                   "Different resource types for resource {}: {} and {}",
-                  resource.getName, resource.getType, usedResource.getType)
+                  value("resource", resource.getName),
+                  value("resourceType", resource.getType),
+                  value("usedResourceType", usedResource.getType)
+                )
                 None
               } else
                 try ResourceUtil.consumeResource(resource, usedResource)
                 catch {
                   case NonFatal(e) =>
-                    log.warn("while consuming {} of type {}", resource.getName, resource.getType, e)
+                    log.warn(
+                      "while consuming {} of type {}",
+                      value("resource", resource.getName),
+                      value("resourceType", resource.getType),
+                      e
+                    )
                     None
                 }
             case (None, _) => None

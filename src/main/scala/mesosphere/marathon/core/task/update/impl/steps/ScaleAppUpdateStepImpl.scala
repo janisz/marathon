@@ -9,6 +9,7 @@ import mesosphere.marathon.core.task.{ Task, TaskStateChange, TaskStateOp }
 import mesosphere.marathon.core.task.bus.MarathonTaskStatus
 import mesosphere.marathon.core.task.bus.TaskChangeObservables.TaskChanged
 import mesosphere.marathon.core.task.update.TaskUpdateStep
+import net.logstash.logback.argument.StructuredArguments.value
 import org.apache.mesos.Protos.TaskState
 import org.slf4j.LoggerFactory
 
@@ -47,8 +48,14 @@ class ScaleAppUpdateStepImpl @Inject() (
       val taskId = task.taskId
       val state = task.mesosStatus.fold(TaskState.TASK_STAGING)(_.getState)
       val reason = task.mesosStatus.fold("")(status => if (status.hasReason) status.getReason.toString else "")
-      log.info(s"initiating a scale check for app [$appId] due to [$taskId] $state $reason")
-      log.info("schedulerActor: {}", schedulerActor)
+      log.info(
+        s"initiating a scale check for app [$appId] due to [$taskId] $state $reason",
+        value("appId", appId),
+        value("taskId", taskId),
+        value("state", state),
+        value("reason", reason)
+      )
+      log.info("schedulerActor: {}", value("schedulerActor", schedulerActor))
       schedulerActor ! ScaleApp(task.taskId.runSpecId)
     }
 

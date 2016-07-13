@@ -10,6 +10,7 @@ import mesosphere.marathon.event._
 import mesosphere.marathon.event.http.HttpEventActor._
 import mesosphere.marathon.event.http.SubscribersKeeperActor.GetSubscribers
 import mesosphere.marathon.metrics.{ MetricPrefixes, Metrics }
+import net.logstash.logback.argument.StructuredArguments.value
 import spray.client.pipelining.{ sendReceive, _ }
 import spray.http.{ HttpRequest, HttpResponse }
 import spray.httpx.PlayJsonSupport
@@ -85,14 +86,18 @@ class HttpEventActor(
     (subscribersKeeper ? GetSubscribers).mapTo[EventSubscribers].map { subscribers =>
       me ! Broadcast(event, subscribers)
     }.onFailure {
-      case NonFatal(e) => log.error("While trying to resolve subscribers for event {}", event)
+      case NonFatal(e) => log.error(
+        "While trying to resolve subscribers for event {}",
+        value("event", event))
     }
   }
 
   def broadcast(event: MarathonEvent, subscribers: EventSubscribers): Unit = {
     val (active, limited) = subscribers.urls.partition(limiter(_).notLimited)
     if (limited.nonEmpty) {
-      log.info(s"""Will not send event ${event.eventType} to unresponsive hosts: ${limited.mkString(" ")}""")
+      log.info(
+        "Will not send event {} to unresponsive hosts: {}",
+        value("eventType", event.eventType), value("hosts", limited.mkString(" ")))
     }
     //remove all unsubscribed callback listener
     limiter = limiter.filterKeys(subscribers.urls).iterator.toMap.withDefaultValue(NoLimit)
@@ -100,7 +105,13 @@ class HttpEventActor(
     active.foreach(url => Try(post(url, event, self)) match {
       case Success(res) =>
       case Failure(ex) =>
-        log.warning(s"Failed to post $event to $url because ${ex.getClass.getSimpleName}: ${ex.getMessage}")
+        log.warning(
+          "Failed to post {} to {} because {}: {}",
+          value("event", event),
+          value("url", url),
+          value("exception", ex.getClass.getSimpleName),
+          value("exceptionMessage", ex.getMessage)
+        )
         metrics.failedCallbacks.mark()
         self ! NotificationFailed(url)
     })
@@ -126,11 +137,22 @@ class HttpEventActor(
         val inTime = start.until(clock.now()) < conf.slowConsumerDuration
         eventActor ! (if (inTime) NotificationSuccess(url) else NotificationFailed(url))
       case Success(res) =>
-        log.warning(s"No success response for post $event to $url")
+        log.warning(
+          "No success response for post {} to {}",
+          value("event", event),
+          value("url", url),
+          value("response", res)
+        )
         metrics.failedCallbacks.mark()
         eventActor ! NotificationFailed(url)
       case Failure(ex) =>
-        log.warning(s"Failed to post $event to $url because ${ex.getClass.getSimpleName}: ${ex.getMessage}")
+        log.warning(
+          s"Failed to post {} to {} because {}: {}",
+          value("event", event),
+          value("url", url),
+          value("exception", ex.getClass.getSimpleName),
+          value("exceptionMessage", ex.getMessage)
+        )
         metrics.failedCallbacks.mark()
         eventActor ! NotificationFailed(url)
     }

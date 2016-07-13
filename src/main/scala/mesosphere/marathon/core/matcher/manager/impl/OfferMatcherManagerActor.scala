@@ -14,6 +14,7 @@ import mesosphere.marathon.metrics.Metrics.AtomicIntGauge
 import mesosphere.marathon.metrics.{ MetricPrefixes, Metrics }
 import mesosphere.marathon.state.Timestamp
 import mesosphere.marathon.tasks.ResourceUtil
+import net.logstash.logback.argument.StructuredArguments.value
 import org.apache.mesos.Protos.{ Offer, OfferID }
 import org.slf4j.LoggerFactory
 import rx.lang.scala.Observer
@@ -109,7 +110,7 @@ private[impl] class OfferMatcherManagerActor private (
   private[this] def receiveChangingMatchers: Receive = {
     case OfferMatcherManagerDelegate.AddOrUpdateMatcher(matcher) =>
       if (!matchers(matcher)) {
-        log.info("activating matcher {}.", matcher)
+        log.info("activating matcher {}.", value("matcher", matcher))
         offerQueues.mapValues(_.addMatcher(matcher))
         matchers += matcher
         updateOffersWanted()
@@ -119,7 +120,7 @@ private[impl] class OfferMatcherManagerActor private (
 
     case OfferMatcherManagerDelegate.RemoveMatcher(matcher) =>
       if (matchers(matcher)) {
-        log.info("removing matcher {}", matcher)
+        log.info("removing matcher {}", value("matcher", matcher))
         matchers -= matcher
         updateOffersWanted()
       }
@@ -238,7 +239,11 @@ private[impl] class OfferMatcherManagerActor private (
     nextMatcherOpt match {
       case Some((nextMatcher, newData)) =>
         import context.dispatcher
-        log.debug(s"query next offer matcher {} for offer id {}", nextMatcher, data.offer.getId.getValue)
+        log.debug(
+          "query next offer matcher {} for offer id {}",
+          value("matcher", nextMatcher),
+          value("offer", data.offer.getId.getValue)
+        )
         nextMatcher
           .matchOffer(newData.deadline, newData.offer)
           .recover {
@@ -257,9 +262,13 @@ private[impl] class OfferMatcherManagerActor private (
     //scalastyle:off magic.number
     val maxRanges = if (log.isDebugEnabled) 1000 else 10
     //scalastyle:on magic.number
-    log.info(s"Finished processing ${data.offer.getId.getValue} from ${data.offer.getHostname}. " +
-      s"Matched ${data.ops.size} ops after ${data.matchPasses} passes. " +
-      s"${ResourceUtil.displayResources(data.offer.getResourcesList.asScala, maxRanges)} left.")
+    log.info(
+      s"Finished processing ${data.offer.getId.getValue} from ${data.offer.getHostname}. " +
+        s"Matched ${data.ops.size} ops after ${data.matchPasses} passes. " +
+        s"${ResourceUtil.displayResources(data.offer.getResourcesList.asScala, maxRanges)} left.",
+      value("offer", data.offer.getId.getValue),
+      value("hostname", data.offer.getHostname)
+    )
   }
 }
 

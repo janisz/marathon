@@ -9,6 +9,7 @@ import mesosphere.marathon.core.CoreGuiceModule
 import mesosphere.marathon.event.EventModule
 import mesosphere.marathon.event.http.HttpEventModule
 import mesosphere.marathon.metrics.{ MetricsReporterModule, MetricsReporterService }
+import net.logstash.logback.argument.StructuredArguments.value
 import org.slf4j.LoggerFactory
 
 class MarathonApp extends App {
@@ -44,7 +45,12 @@ class MarathonApp extends App {
   def runDefault(): Unit = {
     setConcurrentContextDefaults()
 
-    log.info(s"Starting Marathon ${BuildInfo.version} with ${args.mkString(" ")}")
+    log.info(
+      "Starting Marathon {} with {}",
+      value("version", BuildInfo.version),
+      value("args", args.mkString(" ")),
+      value("scalaVersion", BuildInfo.scalaVersion)
+    )
 
     AllConf.config = Some(conf)
 

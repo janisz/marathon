@@ -9,6 +9,7 @@ import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.event._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
 import mesosphere.marathon.MarathonSchedulerDriverHolder
+import net.logstash.logback.argument.StructuredArguments.value
 
 private[health] class HealthCheckActor(
     app: AppDefinition,
@@ -29,9 +30,9 @@ private[health] class HealthCheckActor(
   override def preStart(): Unit = {
     log.info(
       "Starting health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
+      value("appId", app.id),
+      value("version", app.version),
+      value("healthCheck", healthCheck)
     )
     scheduleNextHealthCheck()
   }
@@ -39,27 +40,27 @@ private[health] class HealthCheckActor(
   override def preRestart(reason: Throwable, message: Option[Any]): Unit =
     log.info(
       "Restarting health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
+      value("appId", app.id),
+      value("version", app.version),
+      value("healthCheck", healthCheck)
     )
 
   override def postStop(): Unit = {
     nextScheduledCheck.forall { _.cancel() }
     log.info(
       "Stopped health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
+      value("appId", app.id),
+      value("version", app.version),
+      value("healthCheck", healthCheck)
     )
   }
 
   def purgeStatusOfDoneTasks(): Unit = {
     log.debug(
       "Purging health status of done tasks for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
+      value("appId", app.id),
+      value("version", app.version),
+      value("healthCheck", healthCheck)
     )
     val activeTaskIds = taskTracker.appTasksLaunchedSync(app.id).map(_.taskId).toSet
     // The Map built with filterKeys wraps the original map and contains a reference to activeTaskIds.
@@ -71,9 +72,9 @@ private[health] class HealthCheckActor(
     if (healthCheck.protocol != Protocol.COMMAND) {
       log.debug(
         "Scheduling next health check for app [{}] version [{}] and healthCheck [{}]",
-        app.id,
-        app.version,
-        healthCheck
+        value("appId", app.id),
+        value("version", app.version),
+        value("healthCheck", healthCheck)
       )
       nextScheduledCheck = Some(
         context.system.scheduler.scheduleOnce(healthCheck.interval) {
@@ -89,7 +90,7 @@ private[health] class HealthCheckActor(
     taskTracker.appTasksSync(app.id).foreach { task =>
       task.launched.foreach { launched =>
         if (launched.runSpecVersion == app.version && launched.hasStartedRunning && !isUnreachable(task)) {
-          log.debug("Dispatching health check job for {}", task.taskId)
+          log.debug("Dispatching health check job for {}", value("taskId", task.taskId))
           val worker: ActorRef = context.actorOf(workerProps)
           worker ! HealthCheckJob(app, task, launched, healthCheck)
         }
@@ -104,17 +105,30 @@ private[health] class HealthCheckActor(
     // ignore failures if maxFailures == 0
     if (consecutiveFailures >= maxFailures && maxFailures > 0) {
       log.info(
-        s"Detected unhealthy ${task.taskId} of app [${app.id}] version [${app.version}] on host ${task.agentInfo.host}"
+        "Detected unhealthy {} of app {} version [{}] on host {}",
+        value("taskId", task.taskId),
+        value("appId", app.id),
+        value("version", app.version),
+        value("host", task.agentInfo.host)
       )
 
       // kill the task, if it is reachable
       task match {
         case TemporarilyUnreachable(_) =>
-          val id = task.taskId
-          log.warning(s"Task $id on host ${task.agentInfo.host} is temporarily unreachable. Performing no kill.")
+          log.warning(
+            "Task {} on host {} is temporarily unreachable. Performing no kill.",
+            value("taskId", task.taskId),
+            value("appId", task.runSpecId),
+            value("host", task.agentInfo.host)
+          )
         case _ =>
           marathonSchedulerDriverHolder.driver.foreach { driver =>
-            log.warning(s"Send kill request for ${task.taskId} on host ${task.agentInfo.host} to driver")
+            log.warning(
+              "Send kill request for {} on host {} to driver",
+              value("taskId", task.taskId),
+              value("appId", task.runSpecId),
+              value("host", task.agentInfo.host)
+            )
             eventBus.publish(
               UnhealthyTaskKillEvent(
                 appId = task.runSpecId,
@@ -157,7 +171,11 @@ private[health] class HealthCheckActor(
       scheduleNextHealthCheck()
 
     case result: HealthResult if result.version == app.version =>
-      log.info("Received health result for app [{}] version [{}]: [{}]", app.id, app.version, result)
+      log.info(
+        "Received health result for app [{}] version [{}]: [{}]",
+        value("appId", app.id),
+        value("version", app.version),
+        value("result", result))
       val taskId = result.taskId
       val health = taskHealth.getOrElse(taskId, Health(taskId))
 
@@ -176,7 +194,9 @@ private[health] class HealthCheckActor(
                 health.update(result)
               }
             case None =>
-              log.error(s"Couldn't find task $taskId")
+              log.error(
+                s"Couldn't find task {}",
+                value("taskId", taskId))
               health.update(result)
           }
       }
@@ -194,7 +214,9 @@ private[health] class HealthCheckActor(
       }
 
     case result: HealthResult =>
-      log.warning(s"Ignoring health result [$result] due to version mismatch.")
+      log.warning(
+        s"Ignoring health result [{}] due to version mismatch.",
+        value("taskId", result))
 
   }
 }

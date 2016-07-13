@@ -8,8 +8,10 @@ import mesosphere.marathon.metrics.Metrics
 import mesosphere.marathon.state.StorageVersions._
 import mesosphere.marathon.{ BuildInfo, MarathonConf, MigrationFailedException }
 import mesosphere.util.Logging
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import mesosphere.util.state.{ PersistentStore, PersistentStoreManagement }
+import net.logstash.logback.argument.StructuredArguments.value
 import org.slf4j.LoggerFactory
 
 import scala.collection.SortedSet
@@ -238,11 +240,11 @@ class MigrationTo0_13(taskRepository: TaskRepository, store: PersistentStore) {
     log.info("Start 0.13 migration")
 
     entityStore.names().flatMap { keys =>
-      log.info("Found {} tasks in store", keys.size)
+      log.info("Found {} tasks in store", value("keysSize", keys.size))
       // old format is appId:appId.taskId
       val oldFormatRegex = """^.*:.*\..*$""".r
       val namesInOldFormat = keys.filter(key => oldFormatRegex.pattern.matcher(key).matches)
-      log.info("{} tasks in old format need to be migrated.", namesInOldFormat.size)
+      log.info("{} tasks in old format need to be migrated.", value("namesInOldFormatSize", namesInOldFormat.size))
 
       namesInOldFormat.foldLeft(Future.successful(())) { (f, nextKey) =>
         f.flatMap(_ => migrateKey(nextKey))
