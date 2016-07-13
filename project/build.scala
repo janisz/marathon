@@ -290,6 +290,7 @@ object Dependencies {
     curatorClient % "compile",
     curatorFramework % "compile",
     java8Compat % "compile",
+    "net.logstash.logback" % "logstash-logback-encoder" % "4.7" % "compile",
 
     // test
     Test.diffson % "test",
