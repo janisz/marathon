@@ -2,10 +2,12 @@ package mesosphere.marathon
 
 import javax.inject.Provider
 
-import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.{ Level, LoggerContext }
 import com.google.inject.AbstractModule
 import com.google.inject.matcher.{ AbstractMatcher, Matchers }
 import mesosphere.marathon.metrics.{ MetricPrefixes, Metrics }
+import net.logstash.logback.appender.LogstashTcpSocketAppender
+import net.logstash.logback.composite.loggingevent.ArgumentsJsonProvider
 import org.aopalliance.intercept.{ MethodInterceptor, MethodInvocation }
 import org.rogach.scallop.ScallopConf
 import org.slf4j.{ Logger, LoggerFactory }
@@ -49,6 +51,13 @@ trait DebugConf extends ScallopConf {
   lazy val logLevel = opt[String](
     "logging_level",
     descr = "Set logging level to one of: off, error, warn, info, debug, trace, all",
+    noshort = true
+  )
+
+  lazy val logstash = opt[String](
+    "logstash",
+    descr = "Logs destination if format <host>[:<port>]",
+    validate = { hostPort: String => hostPort.matches("^(.*?)(:(\\d+))?$") },
     noshort = true
   )
 }
@@ -95,6 +104,25 @@ class DebugModule(conf: DebugConf) extends AbstractModule {
       val level = Level.toLevel(if ("fatal".equalsIgnoreCase(levelName)) "fatal" else levelName)
       val rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME).asInstanceOf[ch.qos.logback.classic.Logger]
       rootLogger.setLevel(level)
+    }
+
+    conf.logstash.get.foreach { logstashHostPort =>
+      val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+
+      val encoder = new net.logstash.logback.encoder.LogstashEncoder()
+      encoder.setContext(context)
+      encoder.addProvider(new ArgumentsJsonProvider())
+      encoder.start()
+
+      val logstashAppender = new LogstashTcpSocketAppender()
+      logstashAppender.setName("logstash_tcp_appender")
+      logstashAppender.addDestination(logstashHostPort)
+      logstashAppender.setContext(context)
+      logstashAppender.setEncoder(encoder)
+      logstashAppender.start()
+
+      val logger = context.getLogger(Logger.ROOT_LOGGER_NAME)
+      logger.addAppender(logstashAppender)
     }
 
     //add behaviors
