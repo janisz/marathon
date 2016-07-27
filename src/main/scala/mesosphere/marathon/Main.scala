@@ -1,6 +1,7 @@
 package mesosphere.marathon
 
 import com.google.inject.Module
+import kamon.Kamon
 import mesosphere.chaos.App
 import mesosphere.chaos.http.{ HttpModule, HttpService }
 import mesosphere.chaos.metrics.MetricsModule
@@ -9,6 +10,7 @@ import mesosphere.marathon.core.CoreGuiceModule
 import mesosphere.marathon.event.EventModule
 import mesosphere.marathon.event.http.HttpEventModule
 import mesosphere.marathon.metrics.{ MetricsReporterModule, MetricsReporterService }
+import mesosphere.util.StructuredLogging._
 import org.slf4j.LoggerFactory
 
 class MarathonApp extends App {
@@ -44,7 +46,12 @@ class MarathonApp extends App {
   def runDefault(): Unit = {
     setConcurrentContextDefaults()
 
-    log.info(s"Starting Marathon ${BuildInfo.version}/${BuildInfo.buildref} with ${args.mkString(" ")}")
+    log.info(
+      "Starting Marathon {}/{} with {}",
+      v("version", BuildInfo.version),
+      v("buildref", BuildInfo.buildref),
+      v("args", args.mkString(" "))
+    )
 
     AllConf.config = Some(conf)
 
@@ -101,5 +108,7 @@ class MarathonApp extends App {
 }
 
 object Main extends MarathonApp {
+  Kamon.start()
   runDefault()
+  Kamon.shutdown()
 }

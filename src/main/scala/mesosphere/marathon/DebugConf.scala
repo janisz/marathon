@@ -124,9 +124,11 @@ class DebugModule(conf: DebugConf) extends AbstractModule {
   private def configureLogstash(destination: URI) {
     val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
 
-    val encoder = new net.logstash.logback.encoder.LogstashEncoder()
+    val jsonProvider = new ArgumentsJsonProvider
+
+    val encoder = new net.logstash.logback.encoder.LogstashEncoder
     encoder.setContext(context)
-    encoder.addProvider(new ArgumentsJsonProvider())
+    encoder.addProvider(jsonProvider)
     encoder.start()
 
     val logstashAppender = destination.getScheme match {
@@ -135,6 +137,7 @@ class DebugModule(conf: DebugConf) extends AbstractModule {
         appender.setName("logstash_udp_appender")
         appender.setHost(destination.getHost)
         appender.setPort(destination.getPort)
+        appender.addProvider(jsonProvider)
         appender
       case "tcp" =>
         val appender = new LogstashTcpSocketAppender

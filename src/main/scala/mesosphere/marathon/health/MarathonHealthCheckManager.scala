@@ -7,6 +7,9 @@ import akka.event.EventStream
 import akka.pattern.ask
 import akka.util.Timeout
 import com.google.inject.Provider
+import kamon.trace.TraceLocal.AvailableToMdc
+import kamon.trace.logging.MdcKeysSupport._
+import kamon.trace.{ TraceLocal, Tracer }
 import mesosphere.marathon.Protos.HealthCheckDefinition.Protocol
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.tracker.TaskTracker
@@ -15,6 +18,7 @@ import mesosphere.marathon.health.HealthCheckActor.{ AppHealth, GetAppHealth }
 import mesosphere.marathon.state.{ AppDefinition, AppRepository, PathId, Timestamp }
 import mesosphere.marathon.{ MarathonSchedulerDriverHolder, ZookeeperConf }
 import mesosphere.util.RWLock
+import mesosphere.util.StructuredLogging._
 import org.apache.mesos.Protos.TaskStatus
 
 import scala.collection.immutable.{ Map, Seq }
@@ -33,6 +37,8 @@ class MarathonHealthCheckManager @Inject() (
 
   private[this] lazy val driverHolder = driverHolderProvider.get()
   private[this] lazy val taskTracker = taskTrackerProvider.get()
+
+  val ApplicationId = AvailableToMdc("AppId")
 
   protected[this] case class ActiveHealthCheck(
     healthCheck: HealthCheck,
@@ -56,29 +62,36 @@ class MarathonHealthCheckManager @Inject() (
 
   override def add(app: AppDefinition, healthCheck: HealthCheck): Unit =
     appHealthChecks.writeLock { ahcs =>
-      val healthChecksForApp = listActive(app.id, app.version)
+      Tracer.withNewContext(s"${app.id}-health-check-actor") {
+        TraceLocal.store(ApplicationId)(app.id.toString)
 
-      if (healthChecksForApp.exists(_.healthCheck == healthCheck))
-        log.debug(s"Not adding duplicate health check for app [$app.id] and version [${app.version}]: [$healthCheck]")
+        val healthChecksForApp = listActive(app.id, app.version)
 
-      else {
-        log.info(s"Adding health check for app [${app.id}] and version [${app.version}]: [$healthCheck]")
+        if (healthChecksForApp.exists(_.healthCheck == healthCheck))
+          withMdc {
+            log.debug(s"Not adding duplicate health check for app [$app.id] and version [${app.version}]: [$healthCheck]")
+          }
+        else withMdc {
+          log.info(s"Adding health check for app [${app.id}] and version [${app.version}]: [$healthCheck]")
 
-        val ref = system.actorOf(
-          HealthCheckActor.props(app, driverHolder, healthCheck, taskTracker, eventBus))
-        val newHealthChecksForApp =
-          healthChecksForApp + ActiveHealthCheck(healthCheck, ref)
+          val ref = system.actorOf(
+            HealthCheckActor.props(app, driverHolder, healthCheck, taskTracker, eventBus))
+          val newHealthChecksForApp =
+            healthChecksForApp + ActiveHealthCheck(healthCheck, ref)
 
-        val appMap = ahcs(app.id) + (app.version -> newHealthChecksForApp)
-        ahcs += app.id -> appMap
+          val appMap = ahcs(app.id) + (app.version -> newHealthChecksForApp)
+          ahcs += app.id -> appMap
 
-        eventBus.publish(AddHealthCheck(app.id, app.version, healthCheck))
+          eventBus.publish(AddHealthCheck(app.id, app.version, healthCheck))
+        }
       }
     }
 
   override def addAllFor(app: AppDefinition): Unit =
     appHealthChecks.writeLock { _ => // atomically add all checks
-      app.healthChecks.foreach(add(app, _))
+      Tracer.withNewContext(s"${app.id}-health-check") {
+        app.healthChecks.foreach(add(app, _))
+      }
     }
 
   override def remove(appId: PathId, appVersion: Timestamp, healthCheck: HealthCheck): Unit =
@@ -119,7 +132,10 @@ class MarathonHealthCheckManager @Inject() (
     appRepository.currentVersion(appId) flatMap {
       case None => Future(())
       case Some(app) =>
-        log.info(s"reconcile [$appId] with latest version [${app.version}]")
+        log.info(
+          "reconcile [{}] with latest version [{}]",
+          Seq(v("appId", appId), v("version", app.version)): _*
+        )
 
         val tasks: Iterable[Task] = taskTracker.appTasksSync(app.id)
         val activeAppVersions: Set[Timestamp] =

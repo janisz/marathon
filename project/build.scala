@@ -297,6 +297,8 @@ object Dependencies {
     curatorFramework % "compile",
     java8Compat % "compile",
     logstash % "compile",
+    "io.kamon" %% "kamon-core" % "0.6.0",
+    "io.kamon" %% "kamon-akka" % "0.6.0",
 
     // test
     Test.diffson % "test",

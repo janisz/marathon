@@ -30,3 +30,7 @@ addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.1.0")
 
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.1.10")
 
+addSbtPlugin("com.typesafe.sbt" % "sbt-aspectj" % "0.10.0")
+
+addSbtPlugin("io.kamon" % "aspectj-runner" % "0.1.3")
+

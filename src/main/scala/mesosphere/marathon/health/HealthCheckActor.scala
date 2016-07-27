@@ -2,13 +2,19 @@ package mesosphere.marathon.health
 
 import akka.actor.{ Actor, ActorLogging, ActorRef, Cancellable, Props }
 import akka.event.EventStream
+import kamon.trace.{ TraceLocal, Tracer }
+import kamon.trace.TraceLocal.AvailableToMdc
+import kamon.trace.logging.MdcKeysSupport.withMdc
+import mesosphere.marathon.MarathonSchedulerDriverHolder
 import mesosphere.marathon.Protos.HealthCheckDefinition.Protocol
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.bus.MesosTaskStatus.TemporarilyUnreachable
 import mesosphere.marathon.core.task.tracker.TaskTracker
 import mesosphere.marathon.event._
 import mesosphere.marathon.state.{ AppDefinition, Timestamp }
-import mesosphere.marathon.MarathonSchedulerDriverHolder
+import mesosphere.util.StructuredLogging._
+import net.logstash.logback.argument.StructuredArguments
+import org.slf4j.MDC
 
 private[health] class HealthCheckActor(
     app: AppDefinition,
@@ -27,31 +33,38 @@ private[health] class HealthCheckActor(
   val workerProps = Props[HealthCheckWorkerActor]
 
   override def preStart(): Unit = {
-    log.info(
-      "Starting health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
-    )
+    withMdc {
+      log.info(
+        "Starting health check actor for app [{}] version [{}] and healthCheck [{}]",
+        app.id,
+        app.version,
+        healthCheck
+      )
+    }
     scheduleNextHealthCheck()
   }
 
-  override def preRestart(reason: Throwable, message: Option[Any]): Unit =
-    log.info(
-      "Restarting health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
-    )
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    withMdc {
+      log.info(
+        "Restarting health check actor for app [{}] version [{}] and healthCheck [{}]",
+        app.id,
+        app.version,
+        healthCheck
+      )
+    }
+  }
 
   override def postStop(): Unit = {
     nextScheduledCheck.forall { _.cancel() }
-    log.info(
-      "Stopped health check actor for app [{}] version [{}] and healthCheck [{}]",
-      app.id,
-      app.version,
-      healthCheck
-    )
+    withMdc {
+      log.info(
+        "Stopped health check actor for app [{}] version [{}] and healthCheck [{}]",
+        app.id,
+        app.version,
+        healthCheck
+      )
+    }
   }
 
   def purgeStatusOfDoneTasks(): Unit = {
@@ -69,12 +82,14 @@ private[health] class HealthCheckActor(
 
   def scheduleNextHealthCheck(): Unit =
     if (healthCheck.protocol != Protocol.COMMAND) {
-      log.debug(
-        "Scheduling next health check for app [{}] version [{}] and healthCheck [{}]",
-        app.id,
-        app.version,
-        healthCheck
-      )
+      withMdc {
+        log.debug(
+          "Scheduling next health check for app [{}] version [{}] and healthCheck [{}]",
+          app.id,
+          app.version,
+          healthCheck
+        )
+      }
       nextScheduledCheck = Some(
         context.system.scheduler.scheduleOnce(healthCheck.interval) {
           self ! Tick
@@ -88,11 +103,14 @@ private[health] class HealthCheckActor(
     log.debug("Dispatching health check jobs to workers")
     taskTracker.appTasksSync(app.id).foreach { task =>
       task.launched.foreach { launched =>
-        if (launched.runSpecVersion == app.version && launched.hasStartedRunning && !isUnreachable(task)) {
-          log.debug("Dispatching health check job for {}", task.taskId)
-          val worker: ActorRef = context.actorOf(workerProps)
-          worker ! HealthCheckJob(app, task, launched, healthCheck)
-        }
+        if (launched.runSpecVersion == app.version && launched.hasStartedRunning && !isUnreachable(task))
+          Tracer.withNewContext(s"${app.id}-health-check-actor") {
+            TraceLocal.store(AvailableToMdc("AppId"))(app.id.toString)
+            TraceLocal.store(AvailableToMdc("TaskId"))(task.taskId.idString)
+            log.debug("Dispatching health check job for {}", task.taskId)
+            val worker: ActorRef = context.actorOf(workerProps)
+            worker ! HealthCheckJob(app, task, launched, healthCheck)
+          }
       }
     }
   }
@@ -157,7 +175,16 @@ private[health] class HealthCheckActor(
       scheduleNextHealthCheck()
 
     case result: HealthResult if result.version == app.version =>
-      log.info("Received health result for app [{}] version [{}]: [{}]", app.id, app.version, result)
+      MDC.put("test", app.id.toString)
+      log.info("XXXXXXXX")
+      withMdc {
+        log.info(
+          "Received health result for app [{}] version [{}]: [{}]",
+          StructuredArguments.v("appId", app.id),
+          StructuredArguments.v("version", app.version),
+          v("result", result)
+        )
+      }
       val taskId = result.taskId
       val health = taskHealth.getOrElse(taskId, Health(taskId))
 
