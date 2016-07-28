@@ -69,7 +69,8 @@ class MarathonHealthCheckManager @Inject() (
 
         if (healthChecksForApp.exists(_.healthCheck == healthCheck))
           withMdc {
-            log.debug(s"Not adding duplicate health check for app [$app.id] and version [${app.version}]: [$healthCheck]")
+            log.debug(
+              s"Not adding duplicate health check for app [$app.id] and version [${app.version}]: [$healthCheck]")
           }
         else withMdc {
           log.info(s"Adding health check for app [${app.id}] and version [${app.version}]: [$healthCheck]")
