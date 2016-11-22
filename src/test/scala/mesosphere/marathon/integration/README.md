@@ -95,4 +95,5 @@ $> integration:testOnly mesosphere.marathon.integration.*IntegrationTest -- -Dma
 ```
  
 
+$> integration:testOnly mesosphere.marathon.integration.*IntegrationTest -- -Dmaster=local -DhttpPort=12345 -Dcwd=/
 

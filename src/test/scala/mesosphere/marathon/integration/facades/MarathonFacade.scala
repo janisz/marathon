@@ -312,6 +312,13 @@ class MarathonFacade(val url: String, baseGroup: PathId, waitTime: Duration = 30
     result(pipeline(Delete(s"$url/v2/eventSubscriptions?callbackUrl=$callbackUrl")), waitTime)
   }
 
+  //TODO(janisz): Rewrite with akka-http and proper SSE support
+  def events(eventTypes: String*): RestResult[String] = {
+    val pipeline = marathonSendReceive ~> read[String]
+    val params = eventTypes.map("event_type" -> _).mkString("&")
+    result(pipeline(Get(s"$url/v2/events?$params")), waitTime)
+  }
+
   //metrics ---------------------------------------------
 
   def metrics(): RestResult[HttpResponse] = {

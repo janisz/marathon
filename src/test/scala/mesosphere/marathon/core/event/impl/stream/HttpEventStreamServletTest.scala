@@ -2,11 +2,14 @@ package mesosphere.marathon.core.event.impl.stream
 
 import javax.servlet.http.HttpServletResponse
 
-import akka.actor.ActorRef
+import akka.actor.{Actor, ActorRef}
 import mesosphere.marathon._
 import mesosphere.marathon.api.TestAuthFixture
-import mesosphere.marathon.test.{ MarathonSpec, Mockito }
-import org.scalatest.{ GivenWhenThen, Matchers }
+import mesosphere.marathon.core.event.impl.stream.HttpEventStreamActor.HttpEventStreamConnectionOpen
+import mesosphere.marathon.test.{MarathonSpec, Mockito}
+import org.scalatest.{GivenWhenThen, Matchers}
+import scala.concurrent.duration.DurationConversions._
+import import scala.concurrent.duration._
 
 class HttpEventStreamServletTest extends MarathonSpec with Matchers with Mockito with GivenWhenThen {
 
@@ -39,11 +42,44 @@ class HttpEventStreamServletTest extends MarathonSpec with Matchers with Mockito
     verify(response).setStatus(f.auth.UnauthorizedStatus)
   }
 
+  test("Events are filtered per stream") {
+    Given("An authorized request")
+    val f = new Fixture
+    val resource = f.streamServlet()
+    val response = mock[HttpServletResponse]
+    f.auth.authenticated = true
+    f.auth.authorized = true
+
+    When("Client 1 try to attach to the event stream")
+    val response = mock[HttpServletResponse]
+    resource.doGet(f.auth.request, response)
+
+    Then("Client 1 gets response with filtered events")
+    verify(response).setStatus(f.auth.UnauthorizedStatus)
+  }
+
   class Fixture {
     val actor = mock[ActorRef]
     val auth = new TestAuthFixture
     val config = AllConf.withTestConfig("--event_subscriber", "http_callback")
     def streamServlet() = new HttpEventStreamServlet(actor, config, auth.auth, auth.auth)
+  }
+
+  class KnightWhoSayNi extends Actor {
+
+    var handler = Seq.empty[HttpEventStreamHandle]
+    var count = 0
+
+    import context._
+
+    override def receive: Receive = {
+      case HttpEventStreamConnectionOpen(handle) =>
+        handler :+= handle
+        system.scheduler.scheduleOnce(1.millisecond , self, "tick")
+      case "tick" =>
+        handler.foreach(_.sendEvent("Ni"* (count + 1), ""))
+        if (count < 3) system.scheduler.scheduleOnce(1.millisecond , self, "tick")
+    }
   }
 }
 

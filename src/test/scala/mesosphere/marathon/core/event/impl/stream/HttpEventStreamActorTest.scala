@@ -31,6 +31,21 @@ class HttpEventStreamActorTest extends MarathonActorSupport
     streamActor.underlyingActor.streamHandleActors.get(handle) should be ('nonEmpty)
   }
 
+
+  test("Register multiple Handlers") {
+    Given("A handler that wants to connect and we have an active streamActor")
+    val handle = new HttpEventSSEHandle()
+    call(handle.id).thenReturn("1")
+    streamActor ! LocalLeadershipEvent.ElectedAsLeader
+
+    When("A connection open message is sent to the stream actor")
+    streamActor ! HttpEventStreamConnectionOpen(handle)
+
+    Then("An actor is created and subscribed to the event stream")
+    streamActor.underlyingActor.streamHandleActors should have size 1
+    streamActor.underlyingActor.streamHandleActors.get(handle) should be ('nonEmpty)
+  }
+
   test("Unregister handlers when switching to standby mode") {
     Given("A handler that wants to connect and we have an active streamActor with one connection")
     val handle = mock[HttpEventStreamHandle]
