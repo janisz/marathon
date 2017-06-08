@@ -477,7 +477,7 @@ class TaskBuilderTest extends UnitTest {
 
       assert(
         taskInfo.getContainer.getVolumesList.size == 2,
-        s"check that container has 2 volumes declared, got instead ${taskInfo.getExecutor.getContainer.getVolumesList}")
+        s"check that container has 2 volumes declared, got instead ${taskInfo.getContainer.getVolumesList}")
 
       val vol1 = volumeWith(
         containerPath("/container/path"),
@@ -594,22 +594,24 @@ class TaskBuilderTest extends UnitTest {
 
       assert(resource("cpus") == ScalarResource("cpus", 1)) // sanity, we DID match the offer, right?
 
-      taskInfo.hasContainer should be(false)
-      taskInfo.hasCommand should be(false)
-      taskInfo.getExecutor.hasContainer should be(true)
-      taskInfo.getExecutor.getContainer.hasMesos should be(true)
+      taskInfo.hasContainer should be(true)
+      taskInfo.hasCommand should be(true)
+      taskInfo.getContainer.hasMesos should be(true)
+      taskInfo.getExecutor.hasContainer should be(false)
+      taskInfo.getExecutor.hasCommand should be(true)
+      taskInfo.getExecutor.getCommand.getValue should be("/qazwsx")
 
       // check protobuf construction, should be a ContainerInfo w/ no volumes, w/ envvar
       assert(
-        taskInfo.getExecutor.getContainer.getVolumesList.size == 2,
-        s"check that container has 2 volumes declared, got instead ${taskInfo.getExecutor.getContainer.getVolumesList}")
+        taskInfo.getContainer.getVolumesList.size == 2,
+        s"check that container has 2 volumes declared, got instead ${taskInfo.getContainer.getVolumesList}")
 
       val vol1 = volumeWith(
         containerPath("/container/path"),
         mode(MesosProtos.Volume.Mode.RW),
         volumeRef("bar", "namedFoo")
       )
-      val got1 = taskInfo.getExecutor.getContainer.getVolumes(0)
+      val got1 = taskInfo.getContainer.getVolumes(0)
       assert(vol1.equals(got1), s"expected volume $vol1, got instead: $got1")
 
       val vol2 = volumeWith(
@@ -618,7 +620,7 @@ class TaskBuilderTest extends UnitTest {
         volumeRef("ert", "namedEdc"),
         options(Map("size" -> "2"))
       )
-      val got2 = taskInfo.getExecutor.getContainer.getVolumes(1)
+      val got2 = taskInfo.getContainer.getVolumes(1)
       assert(vol2.equals(got2), s"expected volume $vol2, got instead: $got2")
     }
 
@@ -842,11 +844,12 @@ class TaskBuilderTest extends UnitTest {
 
       val (taskInfo, _) = task.get
 
-      taskInfo.hasContainer should be(false)
+      taskInfo.hasContainer should be(true)
       taskInfo.hasExecutor should be(true)
-      taskInfo.getExecutor.hasContainer should be(true)
+      taskInfo.getExecutor.getCommand.getValue should be("/custom/executor")
+      taskInfo.getExecutor.hasContainer should be(false)
 
-      val networkInfos = taskInfo.getExecutor.getContainer.getNetworkInfosList
+      val networkInfos = taskInfo.getContainer.getNetworkInfosList
       networkInfos.size should be(1)
 
       val networkInfoProto = MesosProtos.NetworkInfo.newBuilder
@@ -959,13 +962,13 @@ class TaskBuilderTest extends UnitTest {
 
       val (taskInfo: TaskInfo, _) = task.get
       assert(taskInfo.hasExecutor)
-      assert(!taskInfo.hasCommand)
+      assert(taskInfo.hasCommand)
 
       val cmd = taskInfo.getExecutor.getCommand
       assert(cmd.getShell)
       assert(cmd.hasValue)
       assert(cmd.getArgumentsList.isEmpty)
-      assert(cmd.getValue == "chmod ug+rx '/custom/executor' && exec '/custom/executor' foo")
+      assert(cmd.getValue == "/custom/executor")
     }
 
     "BuildIfMatchesWithArgsAndExecutor" in {
@@ -985,10 +988,12 @@ class TaskBuilderTest extends UnitTest {
       assert(task.isDefined)
 
       val (taskInfo: TaskInfo, _) = task.get
-      val cmd = taskInfo.getExecutor.getCommand
 
-      assert(!taskInfo.hasCommand)
-      assert(cmd.getValue == "chmod ug+rx '/custom/executor' && exec '/custom/executor' a b c")
+      assert(taskInfo.hasCommand)
+      assert(taskInfo.getCommand.getValue == "a")
+      assert(taskInfo.getCommand.getArgumentsCount == 3)
+      assert(taskInfo.hasExecutor)
+      assert(taskInfo.getExecutor.getCommand.getValue == "/custom/executor")
     }
 
     "BuildIfMatchesWithRole" in {

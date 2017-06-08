@@ -53,27 +53,35 @@ class TaskBuilder(
     val containerProto = computeContainerInfo(resourceMatch.hostPorts, taskId)
     val envPrefix: Option[String] = config.envVarsPrefix.get
 
+    containerProto.foreach(builder.setContainer)
+    val command = TaskBuilder.commandInfo(runSpec, Some(taskId), host, resourceMatch.hostPorts, envPrefix)
+    builder.setCommand(command.build)
+
     executor match {
-      case CommandExecutor =>
-        containerProto.foreach(builder.setContainer)
-        val command = TaskBuilder.commandInfo(runSpec, Some(taskId), host, resourceMatch.hostPorts, envPrefix)
-        builder.setCommand(command.build)
-
       case PathExecutor(path) =>
-        val executorId = Task.Id.calculateLegacyExecutorId(taskId.idString)
-        val executorPath = s"'$path'" // TODO: Really escape this.
-        val cmd = runSpec.cmd.getOrElse(runSpec.args.mkString(" "))
-        val shell = s"chmod ug+rx $executorPath && exec $executorPath $cmd"
+        val executorCommand = TaskBuilder
+          // TODO(janisz): Allow executor command configuration. For now we are copying definition from command
+          // we want to launch.
+          .commandInfo(runSpec, Some(taskId), host, resourceMatch.hostPorts, envPrefix)
+          .setValue(path)
 
-        val info = ExecutorInfo.newBuilder()
-          .setExecutorId(ExecutorID.newBuilder().setValue(executorId))
+        // TODO(janisz): Handle custom executor container configuration.
+        // Executor provided with a container will launch the container
+        // with the executor's CommandInfo and we expect the container to
+        // act as a Mesos executor.
 
-        containerProto.foreach(info.setContainer)
+        val executor = ExecutorInfo.newBuilder()
+          .setExecutorId(ExecutorID.newBuilder().setValue(taskId.idString))
+          .setType(ExecutorInfo.Type.CUSTOM)
+          .setCommand(executorCommand.build)
+        builder.setExecutor(executor)
 
-        val command =
-          TaskBuilder.commandInfo(runSpec, Some(taskId), host, resourceMatch.hostPorts, envPrefix).setValue(shell)
-        info.setCommand(command.build)
-        builder.setExecutor(info)
+      case CommandExecutor =>
+      // TODO(janisz): Set executor type to DEFAULT and generate ID
+      // val executor = ExecutorInfo.newBuilder()
+      //   .setExecutorId(ExecutorID.newBuilder().setValue(taskId.idString))
+      //   .setType(ExecutorInfo.Type.DEFAULT)
+      // builder.setExecutor(executor)
     }
 
     runSpec.taskKillGracePeriod.foreach { period =>
@@ -198,7 +206,7 @@ object TaskBuilder {
       taskContextEnv(runSpec, taskId) ++
         addPrefix(envPrefix, EnvironmentHelper.portsEnv(declaredPorts, hostPorts) ++
           host.map("HOST" -> _).toMap) ++
-        runSpec.env.collect{ case (k: String, v: EnvVarString) => k -> v.value }
+        runSpec.env.collect { case (k: String, v: EnvVarString) => k -> v.value }
 
     val builder = CommandInfo.newBuilder()
       .setEnvironment(environment(envMap))
